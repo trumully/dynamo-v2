@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Protocol
+
+from dynamo._type import CoroFn
 
 
-async def _aiterclose(iterator: AsyncIterator[Any]) -> None:
-    if hasattr(iterator, "__aiterclose__") and callable(iterator.__aiterclose__):
-        await iterator.__aiterclose__()
+class AiterCloseable(Protocol):
+    __aitercloseable__: CoroFn[[], None] | None
+
+
+async def _aiterclose(iterator: AiterCloseable) -> None:
+    close_method: CoroFn[[], None] | None = getattr(iterator, "__aiterclose__", None)
+    if callable(close_method):
+        await close_method()
 
 
 async def process_async_iterable[T](iterator: AsyncIterator[T]) -> list[T]:
     try:
         return [i async for i in iterator]
     finally:
-        await _aiterclose(iterator)
+        await _aiterclose(iterator)  # type: ignore[reportArgumentType]

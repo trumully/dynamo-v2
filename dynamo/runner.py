@@ -15,9 +15,7 @@ async def _run_bot() -> None:
     from .bot import Dynamo
 
     intents = discord.Intents.default()
-
     intents.members = True
-
     intents.guild_scheduled_events = True
 
     client = Dynamo(intents=intents, initial_exts=initial_exts)

@@ -13,21 +13,25 @@ from dynamo._type import BotExports
 from dynamo.utils.logic import process_async_iterable
 
 if TYPE_CHECKING:
-    from .bot import Interaction
+    from dynamo.bot import Interaction
 
 ID_REGEX = r"([0-9]{15,20})$"
 
 _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
 
 
-class ScheduledEventTransformer(Transformer["Dynamo"]):
+class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUndefinedVariable]
     @staticmethod
-    def set_result(result: discord.ScheduledEvent, guild_id: int) -> discord.ScheduledEvent:
+    def set_result(
+        result: discord.ScheduledEvent, guild_id: int
+    ) -> discord.ScheduledEvent:
         _guild_events_cache.setdefault(guild_id, [])
         _guild_events_cache[guild_id].append(result)
         return result
 
-    async def transform(self, interaction: Interaction, value: Any, /) -> discord.ScheduledEvent:
+    async def transform(
+        self, interaction: Interaction, value: Any, /
+    ) -> discord.ScheduledEvent:
         guild = interaction.guild
 
         if guild is None:
@@ -37,14 +41,14 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):
         if isinstance(value, str):
             value = value.casefold()
 
+        result: discord.ScheduledEvent | None = None
         if (events := _guild_events_cache.get(guild.id, None)) is not None:
-            return events
-        try:
-            return next(e for e in events if e.name.casefold() == value or str(e.id) == value)
-        except (StopIteration, TypeError):
-            pass
+            result = next(
+                (e for e in events if e.name.casefold() == value or str(e.id) == value),
+                None,
+            )
 
-        if match := re.compile(ID_REGEX).match(value):
+        if (match := re.compile(ID_REGEX).match(value)) and result is None:
             event_id = int(match.group(1))
             result = guild.get_scheduled_event(event_id) if guild else None
             if result is not None:
@@ -68,7 +72,9 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):
     name="interested",
     description="Format a scheduled event with a hyperlink and list of attendees",
 )
-@app_commands.describe(event="The event name or event id", ephemeral="Result is sent privately")
+@app_commands.describe(
+    event="The event name or event id", ephemeral="Result is sent privately"
+)
 async def interested(
     itx: Interaction,
     event: Transform[discord.ScheduledEvent, ScheduledEventTransformer],
@@ -83,7 +89,7 @@ async def interested(
     await itx.followup.send(content=content, ephemeral=ephemeral)
 
 
-@interested.error
+@interested.error  # type: ignore[reportUnknownMemberType]
 async def interested_error(itx: Interaction, error: app_commands.AppCommandError) -> None:
     send = partial(itx.response.send_message, ephemeral=True)
     msg = "An unexpected error ocurred. Please try again."

@@ -78,13 +78,13 @@ class Dynamo(discord.AutoShardedClient):
         level: int,
         message: str,
         *args: Any,
-        **kwargs: dict[str, Any],
+        exc_info: bool = False,
     ) -> None:
         self.logger.name = name
-        self.logger.log(level, message, *args, **kwargs)
+        self.logger.log(level, message, *args, exc_info=exc_info)
 
-    def info(self, name: str, message: str, *args: Any, **kwargs: dict[str, Any]) -> None:
-        self._log(name, INFO, message, *args, **kwargs)
+    def info(self, name: str, message: str, *args: Any) -> None:
+        self._log(name, INFO, message, *args)
 
-    def bug(self, name: str, message: str, *args: Any, **kwargs: dict[str, Any]) -> None:
-        self._log(name, ERROR, message, *args, exc_info=True, **kwargs)
+    def bug(self, name: str, message: str, *args: Any) -> None:
+        self._log(name, ERROR, message, *args, exc_info=True)
