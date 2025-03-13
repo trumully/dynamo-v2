@@ -1,4 +1,7 @@
-# Dynamo 
+<h2 align="center">Dynamo</h2>
+<p align="center">
+<a href="" rel="noopener"><img src="assets/img/dynamo.png" alt="Dynamo" height="400"></a>
+</p>
 
 ## Setup
 ### Install Python 3.13
