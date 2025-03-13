@@ -73,11 +73,11 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUn
         return AppCommandOptionType.string
 
 
-@app_commands.guild_only()
 @app_commands.command(
     name="interested",
     description="Format a scheduled event with a hyperlink and list of attendees",
 )
+@app_commands.guild_only
 @app_commands.describe(
     event="The name, URL, or Id of the event. "
     "Name is case-insensitive. For specifity, use its URL or Id.",
