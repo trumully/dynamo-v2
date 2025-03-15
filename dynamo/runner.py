@@ -7,7 +7,7 @@ import discord
 from ._type import HasExports
 
 
-async def _run_bot() -> None:
+async def main() -> None:
     from . import identicon, useful
 
     initial_exts: list[HasExports] = [useful, identicon]
@@ -22,16 +22,12 @@ async def _run_bot() -> None:
 
     from .utils.files import get_token
 
-    try:
-        async with client:
-            await client.start(get_token())
-    finally:
-        if not client.is_closed():
-            await client.close()
+    async with client:
+        await client.start(get_token())
 
 
 def run_bot() -> None:
     from .utils.logging import with_logging
 
     with with_logging():
-        asyncio.run(_run_bot())
+        asyncio.run(main())

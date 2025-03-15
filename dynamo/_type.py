@@ -17,5 +17,5 @@ class HasExports(Protocol):
     exports: BotExports
 
 
-type Coro[T] = Coroutine[Any, Any, T]
+type Coro[T] = Coroutine[object, object, T]
 type CoroFn[**P, T] = Callable[P, Coro[T]]

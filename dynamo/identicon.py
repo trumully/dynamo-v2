@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 import random
+from collections.abc import Sequence
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, NamedTuple, Self
 
 import discord
-from discord import AppCommandOptionType, app_commands
-from discord.app_commands import Transform
+from discord import app_commands
 from PIL import Image
 
 from dynamo._type import BotExports
@@ -19,39 +20,63 @@ if TYPE_CHECKING:
 
 IDENTICON_SIZE = 500
 
-type UserOrString = discord.User | discord.Member | str
-type Color = tuple[int, int, int]
-type Matrix[T] = list[list[T]]
-
-WHITE: Color = (255, 255, 255)
-BLACK: Color = (0, 0, 0)
+type Matrix[T] = Sequence[Sequence[T]]
 
 
-class UserOrStringTransformer(app_commands.Transformer["Dynamo"]):  # type: ignore[reportUndefinedVariable]
-    async def transform(self, interaction: Interaction, value: Any, /) -> UserOrString:
-        if not isinstance(value, discord.Member | discord.User | str):
-            raise app_commands.TransformerError(value, self.type, self)
-        return value
+MAX_PERCEIVED = 764.83
+MAX_EUCLEDIAN = 441.67
 
-    @property
-    def type(self) -> AppCommandOptionType:
-        return AppCommandOptionType.string
+# lower value = more similar
+SIMILARITY_CUTOFF = 0.3
 
+EPSILON = 1e-6
 
-def seed_from_user_or_string(user_or_string: UserOrString) -> int:
-    if isinstance(user_or_string, discord.Member | discord.User):
-        return user_or_string.id
-
-    if user_or_string.isdigit():
-        return int(user_or_string)
-    return int.from_bytes(user_or_string.encode(), "big", signed=True)
+log = logging.getLogger(__name__)
 
 
-def title_from_user_or_string(user_or_string: UserOrString) -> str:
-    if isinstance(user_or_string, discord.User | discord.Member):
-        return user_or_string.name
+class RGB(NamedTuple):
+    r: int
+    g: int
+    b: int
 
-    return str(user_or_string)
+    def __sub__(self, other: object) -> tuple[int, int, int]:
+        if isinstance(other, RGB):
+            return self.r - other.r, self.g - other.g, self.b - other.b
+        return NotImplemented
+
+    @staticmethod
+    def colors_similar(x: RGB, y: RGB) -> bool:
+        p_dist = x.perceived_distance_from(y)
+        e_dist = x.euclidean_distance_from(y)
+
+        thresh = SIMILARITY_CUTOFF * (1 + abs((sum(x) / 765) - (sum(y) / 765)))
+
+        return p_dist <= (thresh + EPSILON) and e_dist <= (thresh + EPSILON)
+
+    def perceived_distance_from(self, other: RGB) -> float:
+        """Uses cmetric formula from `CompuPhase`_:
+
+        `ΔC = √((2 + r̄/256) * ΔR² + 4 * ΔG² + (2 + (255 - r̄)/256) * ΔB²)`
+
+        .. _CompuPhase:
+            https://www.compuphase.com/cmetric.htm
+        """
+        r_mean = (self.r + other.r) >> 1
+        # delta of r, g, b each is squared
+        r, g, b = (x**2 for x in (self - other))
+        distance = (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
+        return distance / MAX_PERCEIVED
+
+    def euclidean_distance_from(self, other: RGB) -> float:
+        return (sum(x**2 for x in (self - other)) ** 0.5) / MAX_EUCLEDIAN
+
+    @classmethod
+    def from_hex(cls: type[Self], h: str) -> Self:
+        return cls(*(int(h.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)))
+
+
+WHITE = RGB(255, 255, 255)
+BLACK = RGB(0, 0, 0)
 
 
 def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
@@ -61,7 +86,7 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
     for i in range(height):
         for j in range(width):
             is_colored = round(random.random(), 2)
-            if is_colored > 0.6:
+            if is_colored <= 0.6:
                 result[i][j] = 1
 
     # flip
@@ -71,24 +96,25 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
     return result
 
 
-def get_colors(seed: int) -> tuple[Color, Color]:
-    primary: Color
-    secondary: Color
-
+def get_colors(seed: int) -> tuple[RGB, RGB]:
     random.seed(seed)
-    primary = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    secondary = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+    while RGB.colors_similar(primary, secondary):
+        primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
     return primary, secondary
 
 
-def color_matrix_in_place(
+def color_matrix(
     matrix: Matrix[int],
-    primary: Color = BLACK,
-    secondary: Color = WHITE,
-) -> Matrix[Color]:
+    primary: RGB = BLACK,
+    secondary: RGB = WHITE,
+) -> Matrix[RGB]:
     width, height = len(matrix[0]), len(matrix)
-    colored: Matrix[Color] = [[primary] * width for _ in range(height)]
+    colored: Matrix[RGB] = [[primary] * width for _ in range(height)]
     for i in range(height):
         for j in range(width):
             colored[i][j] = primary if matrix[i][j] == 1 else secondary
@@ -97,7 +123,7 @@ def color_matrix_in_place(
 
 
 @executor_function
-def make_identicon(matrix: Matrix[int]) -> bytes:
+def make_identicon(matrix: Matrix[RGB]) -> bytes:
     buffer = BytesIO()
 
     matrix_width, matrix_height = len(matrix[0]), len(matrix)
@@ -107,7 +133,8 @@ def make_identicon(matrix: Matrix[int]) -> bytes:
     assert data is not None
     for i in range(matrix_height):
         for j in range(matrix_width):
-            data[i, j] = matrix[i][j]
+            r, g, b = matrix[i][j]
+            data[i, j] = (r, g, b)
 
     image = image.resize((IDENTICON_SIZE, IDENTICON_SIZE), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
     image = image.rotate(90, Image.Resampling.NEAREST)
@@ -120,8 +147,8 @@ def make_identicon(matrix: Matrix[int]) -> bytes:
 async def embed_identicon(seed: int, title: str) -> tuple[discord.Embed, discord.File]:
     matrix = make_matrix(seed)
     primary, secondary = get_colors(seed)
-    color_matrix_in_place(matrix, primary, secondary)
-    identicon_bytes = await make_identicon(matrix)
+    colors = color_matrix(matrix, primary, secondary)
+    identicon_bytes = await make_identicon(colors)
 
     file = discord.File(BytesIO(identicon_bytes), filename="identicon.png")
     embed = discord.Embed(title=title)
@@ -130,32 +157,24 @@ async def embed_identicon(seed: int, title: str) -> tuple[discord.Embed, discord
 
 
 @app_commands.command(name="identicon", description="Generate an identicon from a seed")
-@app_commands.describe(
-    seed="Seed used to generate icon", ephemeral="Result is sent privately"
-)
+@app_commands.describe(value="Input used to generate icon", ephemeral="Send privately")
 async def get_identicon(
     itx: Interaction,
-    seed: Transform[UserOrString, UserOrStringTransformer] | None = None,
+    value: str | None = None,
     ephemeral: bool = False,
 ) -> None:
-    seed_: int
-    if seed is None:
-        seed_ = int.from_bytes(os.urandom(8), "big", signed=True)
-    else:
-        seed_ = seed_from_user_or_string(seed)
+    seed_bytes = os.urandom(8) if value is None or not value else value.encode()
+    seed = int.from_bytes(seed_bytes, "big", signed=True)
+    title = value or str(seed)
 
-    title = title_from_user_or_string(seed if seed is not None else str(seed_))
-    embed, file = await embed_identicon(seed_, title)
+    embed, file = await embed_identicon(seed, title)
 
-    await itx.response.send_message(embed=embed, file=file, ephemeral=True)
+    await itx.response.send_message(embed=embed, file=file, ephemeral=ephemeral)
 
 
 @app_commands.context_menu(name="Identicon")
-async def identicon_context_menu(
-    itx: Interaction, user: discord.Member | discord.User
-) -> None:
-    seed = seed_from_user_or_string(user)
-    embed, file = await embed_identicon(seed, str(user))
+async def identicon_context_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
+    embed, file = await embed_identicon(user.id, user.name)
     await itx.response.send_message(embed=embed, file=file, ephemeral=True)
 
 

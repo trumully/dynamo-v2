@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from logging import ERROR, INFO, getLogger
-from typing import Any, Self
+from typing import Self
 
 import discord
 import msgspec
@@ -43,11 +43,11 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 class Dynamo(discord.AutoShardedClient):
     def __init__(
         self,
-        *args: Any,
+        *args: object,
         intents: discord.Intents | None = None,
         initial_exts: list[HasExports],
-        **kwargs: Any,
-    ):
+        **kwargs: object,
+    ) -> None:
         intents = intents or discord.Intents.none()
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
@@ -77,14 +77,14 @@ class Dynamo(discord.AutoShardedClient):
         name: str,
         level: int,
         message: str,
-        *args: Any,
+        *args: object,
         exc_info: bool = False,
     ) -> None:
         self.logger.name = name
         self.logger.log(level, message, *args, exc_info=exc_info)
 
-    def info(self, name: str, message: str, *args: Any) -> None:
+    def info(self, name: str, message: str, *args: object) -> None:
         self._log(name, INFO, message, *args)
 
-    def bug(self, name: str, message: str, *args: Any) -> None:
+    def bug(self, name: str, message: str, *args: object) -> None:
         self._log(name, ERROR, message, *args, exc_info=True)
