@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine
-from typing import Any, NamedTuple, Protocol
 
 from discord import app_commands
 
-type ACommand = app_commands.Command[Any, Any, Any]
+from . import _type_shim as t
+
+type ACommand = app_commands.Command[t.Any, t.Any, t.Any]
 type AppCommandTypes = app_commands.Group | ACommand | app_commands.ContextMenu
 
 
-class BotExports(NamedTuple):
+class BotExports(t.NamedTuple):
     commands: list[AppCommandTypes] | None = None
 
 
-class HasExports(Protocol):
+class HasExports(t.Protocol):
     exports: BotExports
 
 

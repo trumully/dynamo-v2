@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Protocol
 
+from dynamo import _type_shim as t
 from dynamo._type import CoroFn
 
 
-class AiterCloseable(Protocol):
+class AiterCloseable(t.Protocol):
     __aitercloseable__: CoroFn[[], None] | None
 
 

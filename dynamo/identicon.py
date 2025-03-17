@@ -5,7 +5,6 @@ import os
 import random
 from collections.abc import Sequence
 from io import BytesIO
-from typing import TYPE_CHECKING, NamedTuple, Self
 
 import discord
 from discord import app_commands
@@ -14,7 +13,9 @@ from PIL import Image
 from dynamo._type import BotExports
 from dynamo.utils.wrappers import executor_function
 
-if TYPE_CHECKING:
+from . import _type_shim as t
+
+if t.TYPE_CHECKING:
     from dynamo.bot import Interaction
 
 
@@ -34,7 +35,7 @@ EPSILON = 1e-6
 log = logging.getLogger(__name__)
 
 
-class RGB(NamedTuple):
+class RGB(t.NamedTuple):
     r: int
     g: int
     b: int
@@ -64,14 +65,16 @@ class RGB(NamedTuple):
         r_mean = (self.r + other.r) >> 1
         # delta of r, g, b each is squared
         r, g, b = (x**2 for x in (self - other))
-        distance = (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
+        distance = (
+            (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
+        )
         return distance / MAX_PERCEIVED
 
     def euclidean_distance_from(self, other: RGB) -> float:
         return (sum(x**2 for x in (self - other)) ** 0.5) / MAX_EUCLEDIAN
 
     @classmethod
-    def from_hex(cls: type[Self], h: str) -> Self:
+    def from_hex(cls: type[t.Self], h: str) -> t.Self:
         return cls(*(int(h.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)))
 
 
@@ -99,11 +102,17 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
 def get_colors(seed: int) -> tuple[RGB, RGB]:
     random.seed(seed)
     primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    secondary = RGB(
+        random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+    )
 
     while RGB.colors_similar(primary, secondary):
-        primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        primary = RGB(
+            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+        )
+        secondary = RGB(
+            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+        )
 
     return primary, secondary
 
@@ -173,7 +182,9 @@ async def get_identicon(
 
 
 @app_commands.context_menu(name="Identicon")
-async def identicon_context_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
+async def identicon_context_menu(
+    itx: Interaction, user: discord.Member | discord.User
+) -> None:
     embed, file = await embed_identicon(user.id, user.name)
     await itx.response.send_message(embed=embed, file=file, ephemeral=True)
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from functools import partial
-from typing import TYPE_CHECKING
 
 import discord
 from async_utils.lru import LRU
@@ -12,7 +11,9 @@ from discord.app_commands import Transform, Transformer
 from dynamo._type import BotExports
 from dynamo.utils.logic import process_async_iterable
 
-if TYPE_CHECKING:
+from . import _type_shim as t
+
+if t.TYPE_CHECKING:
     from .bot import Interaction
 
 ID_REGEX = r"([0-9]{15,20})$"
@@ -22,7 +23,9 @@ _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
 
 
 class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUnknownVariable]
-    async def transform(self, interaction: Interaction, value: str, /) -> discord.ScheduledEvent:
+    async def transform(
+        self, interaction: Interaction, value: str, /
+    ) -> discord.ScheduledEvent:
         if interaction.guild is None:
             msg = "Tried transforming event outside of guild"
             raise app_commands.NoPrivateMessage(msg) from None
@@ -34,16 +37,23 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUn
         client = interaction.client
         guilds = client.guilds
 
-        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(itx_guild.id, [])
+        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(
+            itx_guild.id, []
+        )
         result = next((e for e in events if e.name == value or str(e.id) == value), None)
 
         if result is not None:
             client.info(
-                "useful.interested", "%s is already cached for guild %d.", value, itx_guild.id
+                "useful.interested",
+                "%s is already cached for guild %d.",
+                value,
+                itx_guild.id,
             )
             return result
 
-        client.info("useful.interested", "%s is not yet cached for guild %d", value, itx_guild.id)
+        client.info(
+            "useful.interested", "%s is not yet cached for guild %d", value, itx_guild.id
+        )
 
         if match := re.compile(ID_REGEX).match(value):
             event_id = int(match.group(1))

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from logging import ERROR, INFO, getLogger
-from typing import Self
 
 import discord
 import msgspec
@@ -11,12 +10,14 @@ from discord import app_commands
 from dynamo._type import HasExports
 from dynamo.utils.files import platformdir, resolve_path_with_links
 
+from . import _type_shim as t
+
 type Interaction = discord.Interaction[Dynamo]
 
 
 class VersionedTree(app_commands.CommandTree["Dynamo"]):
     @classmethod
-    def from_dynamo(cls: type[Self], client: Dynamo) -> Self:
+    def from_dynamo(cls: type[t.Self], client: Dynamo) -> t.Self:
         installs = app_commands.AppInstallationType(user=True, guild=True)
 
         ctx = app_commands.AppCommandContext

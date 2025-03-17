@@ -3,22 +3,23 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import os
-import queue
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Protocol, TypeVar, cast
+from queue import SimpleQueue
+
+from dynamo import _type_shim as t
 
 from .files import platformdir, resolve_path_with_links
 
-_T_contra = TypeVar("_T_contra", contravariant=True)
+_T_contra = t.TypeVar("_T_contra", contravariant=True)
 
 
-class SupportsWrite(Protocol[_T_contra]):
+class SupportsWrite(t.Protocol[_T_contra]):
     def write(self, s: _T_contra, /) -> object: ...
 
 
-class SupportsWriteAndisatty(Protocol[_T_contra]):
+class SupportsWriteAndisatty(t.Protocol[_T_contra]):
     def write(self, s: _T_contra, /) -> object: ...
     def isatty(self) -> bool: ...
 
@@ -75,7 +76,7 @@ def use_color_formatting(stream: Stream[str]) -> bool:
     is_a_tty: bool = False
 
     if hasattr(stream, "isatty"):
-        is_a_tty = cast("SupportsWriteAndisatty[str]", stream).isatty()
+        is_a_tty = t.cast("SupportsWriteAndisatty[str]", stream).isatty()
 
     if os.environ.get("TERM_PROGRAM") == "vscode":
         return is_a_tty
@@ -89,7 +90,7 @@ def use_color_formatting(stream: Stream[str]) -> bool:
 
 @contextmanager
 def with_logging() -> Generator[None]:
-    q: queue.SimpleQueue[Any] = queue.SimpleQueue()
+    q: SimpleQueue[t.Any] = SimpleQueue()
     q_handler = logging.handlers.QueueHandler(q)
     q_handler.addFilter(KnownWarningFilter())
     stream_h = logging.StreamHandler()
