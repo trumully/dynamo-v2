@@ -7,7 +7,6 @@ preview = true
 [tool.ruff.format]
 line-ending = "lf"
 
-
 [tool.ruff.lint]
 select = [
     "A", "ANN", "ASYNC", "B", "BLE", "C4", "COM", "DTZ", "E",
@@ -84,6 +83,9 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 dynamo = "dynamo.cli:main"
+
+[dependency-groups]
+dev = []
 
 [project]
 name = "dynamo"

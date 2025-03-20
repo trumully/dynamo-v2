@@ -23,9 +23,7 @@ _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
 
 
 class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUnknownVariable]
-    async def transform(
-        self, interaction: Interaction, value: str, /
-    ) -> discord.ScheduledEvent:
+    async def transform(self, interaction: Interaction, value: str, /) -> discord.ScheduledEvent:
         if interaction.guild is None:
             msg = "Tried transforming event outside of guild"
             raise app_commands.NoPrivateMessage(msg) from None
@@ -37,9 +35,7 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUn
         client = interaction.client
         guilds = client.guilds
 
-        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(
-            itx_guild.id, []
-        )
+        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(itx_guild.id, [])
         result = next((e for e in events if e.name == value or str(e.id) == value), None)
 
         if result is not None:
@@ -51,9 +47,7 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUn
             )
             return result
 
-        client.info(
-            "useful.interested", "%s is not yet cached for guild %d", value, itx_guild.id
-        )
+        client.info("useful.interested", "%s is not yet cached for guild %d", value, itx_guild.id)
 
         if match := re.compile(ID_REGEX).match(value):
             event_id = int(match.group(1))

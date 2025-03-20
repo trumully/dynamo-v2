@@ -65,9 +65,7 @@ class RGB(t.NamedTuple):
         r_mean = (self.r + other.r) >> 1
         # delta of r, g, b each is squared
         r, g, b = (x**2 for x in (self - other))
-        distance = (
-            (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
-        )
+        distance = (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
         return distance / MAX_PERCEIVED
 
     def euclidean_distance_from(self, other: RGB) -> float:
@@ -102,17 +100,11 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
 def get_colors(seed: int) -> tuple[RGB, RGB]:
     random.seed(seed)
     primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    secondary = RGB(
-        random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-    )
+    secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
     while RGB.colors_similar(primary, secondary):
-        primary = RGB(
-            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-        )
-        secondary = RGB(
-            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-        )
+        primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
     return primary, secondary
 
@@ -137,13 +129,11 @@ def make_identicon(matrix: Matrix[RGB]) -> bytes:
 
     matrix_width, matrix_height = len(matrix[0]), len(matrix)
 
-    image = Image.new("RGB", (matrix_width, matrix_height), 255)
-    data = image.load()  # type: ignore[reportUnknownMemberType]
-    assert data is not None
+    image: Image.Image = Image.new("RGB", (matrix_width, matrix_height), 255)
     for i in range(matrix_height):
         for j in range(matrix_width):
             r, g, b = matrix[i][j]
-            data[i, j] = (r, g, b)
+            image.putpixel((i, j), (r, g, b))
 
     image = image.resize((IDENTICON_SIZE, IDENTICON_SIZE), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
     image = image.rotate(90, Image.Resampling.NEAREST)
@@ -182,9 +172,7 @@ async def get_identicon(
 
 
 @app_commands.context_menu(name="Identicon")
-async def identicon_context_menu(
-    itx: Interaction, user: discord.Member | discord.User
-) -> None:
+async def identicon_context_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
     embed, file = await embed_identicon(user.id, user.name)
     await itx.response.send_message(embed=embed, file=file, ephemeral=True)
 
