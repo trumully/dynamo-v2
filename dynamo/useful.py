@@ -11,10 +11,7 @@ from discord.app_commands import Transform, Transformer
 from dynamo._type import BotExports
 from dynamo.utils.logic import process_async_iterable
 
-from . import _type_shim as t
-
-if t.TYPE_CHECKING:
-    from .bot import Interaction
+from .bot import Interaction
 
 ID_REGEX = r"([0-9]{15,20})$"
 URL_REGEX = r"https?://(?:(ptb|canary|www)\.)?discord\.com/events/(?P<guild_id>[0-9]{15,20})/(?P<event_id>[0-9]{15,20})$"

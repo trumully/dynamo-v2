@@ -10,14 +10,10 @@ import discord
 from discord import app_commands
 from PIL import Image
 
-from dynamo._type import BotExports
-from dynamo.utils.wrappers import executor_function
-
 from . import _type_shim as t
-
-if t.TYPE_CHECKING:
-    from dynamo.bot import Interaction
-
+from ._type import BotExports
+from .bot import Interaction
+from .utils.wrappers import executor_function
 
 IDENTICON_SIZE = 500
 

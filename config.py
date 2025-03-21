@@ -1,16 +1,18 @@
-from typing import NamedTuple
+from dynaconf.typed import Dynaconf, Options, Validator  # type: ignore[reportMissingTypeStubs]
+from dynamo import _type_shim as t
 
-from dynaconf import Dynaconf
+# A discord bot token is a string that matches the following pattern:
+# >>> "[M|N|O]XXXXXXXXXXXXXXXXXXXXXXX[XX].XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# https://discord.com/developers/docs/reference#authentication
+bot_regex = r"[MNO][a-zA-Z\d_-]{23,25}\.[a-zA-Z\d_-]{6}\.[a-zA-Z\d_-]{27}"
 
 
-class HasToken(NamedTuple):
-    token: str
+class Settings(Dynaconf):
+    dynaconf_options = Options(
+        envvar_prefix="DYNAMO",
+        settings_files=[".secrets.toml"],
+    )
+    token: t.Annotated[str, Validator(regex=bot_regex)]  # type: ignore[reportUninitializedInstanceVariable]
 
 
-settings: HasToken = Dynaconf(
-    envvar_prefix="DYNAMO",
-    settings_files=[".secrets.toml"],
-)
-
-# `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
-# `settings_files` = Load these files in the order.
+settings = Settings()

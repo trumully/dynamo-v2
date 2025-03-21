@@ -84,8 +84,6 @@ build-backend = "hatchling.build"
 [project.scripts]
 dynamo = "dynamo.cli:main"
 
-[dependency-groups]
-dev = []
 
 [project]
 name = "dynamo"
@@ -103,13 +101,12 @@ classifiers = [
 ]
 license = { text = "Unlicense "}
 dependencies = [
-    "discord-py",
-    "dynaconf>=3.2.10",
+    "discord-py[speed]",
+    "dynaconf",
     "mikeshardmind-async-utils",
     "msgspec>=0.19.0",
     "pillow>=11.1.0",
     "platformdirs>=4.3.6",
-    "xxhash>=3.5.0",
 ]
 
 
@@ -126,5 +123,6 @@ reportUninitializedInstanceVariable = "error"
 reportUnnecessaryTypeIgnoreComment = "warning"
 
 [tool.uv.sources]
-discord-py = { git = "https://github.com/Rapptz/discord.py" }
 mikeshardmind-async-utils = { git = "https://github.com/mikeshardmind/async-utils" }
+discord-py = { git = "https://github.com/mikeshardmind/discord.py", rev = "salamander-reloaded" }
+dynaconf = { git = "https://github.com/dynaconf/dynaconf" }

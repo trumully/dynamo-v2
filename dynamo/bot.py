@@ -1,18 +1,32 @@
 from __future__ import annotations
 
+from hashlib import blake2b
 from logging import ERROR, INFO, getLogger
 
 import discord
-import msgspec
-import xxhash
 from discord import app_commands
-
-from dynamo._type import HasExports
-from dynamo.utils.files import platformdir, resolve_path_with_links
+from discord.abc import Snowflake
 
 from . import _type_shim as t
+from ._type import HasExports
+from .utils.files import platformdir, resolve_path_with_links
+from .utils.logic import to_json
 
 type Interaction = discord.Interaction[Dynamo]
+
+
+def _hash_payload(payload: list[dict[str, object]]) -> bytes:
+    tree_hash = blake2b(digest_size=32, person=b"tree", last_node=True, usedforsecurity=False)
+    command_hashes = [
+        blake2b(
+            to_json(c).encode(), person=b"command", last_node=False, usedforsecurity=False
+        ).digest()
+        for c in payload
+    ]
+    for h in sorted(command_hashes):
+        tree_hash.update(h)
+
+    return b"v1:" + tree_hash.digest()
 
 
 class VersionedTree(app_commands.CommandTree["Dynamo"]):
@@ -29,16 +43,22 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             allowed_installs=installs,
         )
 
-    async def get_hash(self) -> bytes:
-        cmds = sorted(self._get_all_commands(guild=None), key=lambda c: c.qualified_name)
+    async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
+        commands = self._get_all_commands(guild=guild)
 
         translator = self.translator
         if translator:
-            payload = [await c.get_translated_payload(self, translator) for c in cmds]
+            payload = [
+                await command.get_translated_payload(self, translator) for command in commands
+            ]
         else:
-            payload = [c.to_dict(self) for c in cmds]
+            payload = [command.to_dict(self) for command in commands]
 
-        return xxhash.xxh64_digest(msgspec.msgpack.encode(payload), seed=0)
+        return payload
+
+    async def get_hash(self, *, guild: Snowflake | None = None) -> bytes:
+        payload = await self._get_payload(guild=guild)
+        return _hash_payload(payload)
 
 
 class Dynamo(discord.AutoShardedClient):

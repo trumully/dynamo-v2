@@ -5,6 +5,7 @@ from __future__ import annotations
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from typing import (
+        Annotated,
         Any,
         Concatenate,
         Literal,
@@ -19,6 +20,7 @@ else:
 
     def __getattr__(name: str):
         if name in {
+            "Annotated",
             "Any",
             "Concatenate",
             "Literal",
@@ -39,6 +41,7 @@ else:
 
 __all__ = (
     "TYPE_CHECKING",
+    "Annotated",
     "Any",
     "Concatenate",
     "Literal",
