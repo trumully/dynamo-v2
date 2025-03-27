@@ -55,7 +55,7 @@ unfixable = [
 ]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"
+convention = "google"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # https://discuss.python.org/t/problems-with-typeis/55410/6
@@ -101,12 +101,12 @@ classifiers = [
 ]
 license = { text = "Unlicense "}
 dependencies = [
-    "discord-py[speed]",
-    "dynaconf",
-    "mikeshardmind-async-utils",
-    "msgspec>=0.19.0",
-    "pillow>=11.1.0",
-    "platformdirs>=4.3.6",
+    "discord-py[speed]~=v2.6.0",
+    "dynaconf~=3.3.0.dev0",
+    "mikeshardmind-async-utils~=2025.3.12",
+    "msgspec~=0.19.0",
+    "pillow~=11.1.0",
+    "platformdirs~=4.3.7",
 ]
 
 
