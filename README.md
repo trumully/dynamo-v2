@@ -17,7 +17,7 @@ git clone https://github.com/trumully/dynamo-v2.git
 
 ### Sync
 ```sh
-cd dynmao
+cd dynamo
 uv sync
 ```
 
