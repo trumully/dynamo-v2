@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import os
 
-if __name__ == "__main__":
+
+def main() -> None:
     os.umask(0o077)
 
     from .runner import run_bot
