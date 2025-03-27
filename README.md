@@ -3,14 +3,11 @@
 <a href="" rel="noopener"><img src="assets/img/dynamo.png" alt="Dynamo" height="400"></a>
 </p>
 
-## Setup
-### Install Python 3.13
+## Set up
+### Preqrequisites 
 ```sh
-winget install --id Python.Python.3.13 --exact
-```
-### Install uv
-```sh
-winget install --id astral-sh.uv --exact
+winget add --id Python.Python.3.13 -e
+winget add --id astral-sh.uv -e
 ```
 
 ### Clone repository
