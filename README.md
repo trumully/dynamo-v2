@@ -21,7 +21,20 @@ cd dynamo
 uv sync
 ```
 
-## Run
+## Using
+### Check
+```sh
+uv run build.py --check
+```
+
+### Run
+Entrypoint is in `dynamo/cli.py`. You can run with Python with a virtual environment (probably better) or with uv (easier).
+
 ```sh
 uv run dynamo
+```
+
+```sh
+# replace `py` with whatever alias your system uses
+py -O dynamo/cli.py
 ```
