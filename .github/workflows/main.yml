@@ -1,0 +1,21 @@
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+
+jobs:
+    everything:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            
+            - name: Install the latest version of uv
+              uses: astral-sh/setup-uv@v5
+            
+            - uses: actions/setup-node@v4
+              with:
+                node-version: '18'
+
+            - run: >
+                uv run build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}

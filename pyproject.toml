@@ -111,7 +111,7 @@ dependencies = [
 
 
 [tool.pyright]
-include = ["src"]
+include = ["dynamo"]
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 pythonPlatform = "All"
