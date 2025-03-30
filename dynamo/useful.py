@@ -6,67 +6,86 @@ from functools import partial
 import discord
 from async_utils.lru import LRU
 from discord import AppCommandOptionType, app_commands
-from discord.app_commands import Transform, Transformer
+from discord.app_commands import Transform
 
-from dynamo._type import BotExports
-from dynamo.utils.logic import process_async_iterable
-
+from ._type import BotExports, DynamoTransformer
 from .bot import Interaction
-
-ID_REGEX = r"([0-9]{15,20})$"
-URL_REGEX = r"https?://(?:(ptb|canary|www)\.)?discord\.com/events/(?P<guild_id>[0-9]{15,20})/(?P<event_id>[0-9]{15,20})$"
+from .utils.logic import process_async_iterable
 
 _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
 
 
-class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUnknownVariable]
-    async def transform(self, interaction: Interaction, value: str, /) -> discord.ScheduledEvent:
-        if interaction.guild is None:
+class ScheduledEventTransformer(DynamoTransformer):
+    """discord.ScheduledEvent transformer adapted from the discord.py converter.
+
+    Lookups are done for the local guild if available. Otherwise, for a DM context,
+    lookup is done by the global cache.
+
+    The lookup strategy is as follows (in order):
+
+    1. Lookup by ID.
+    2. Lookup by url.
+    3. Lookup by name.
+    """
+
+    @staticmethod
+    def _get_cached(values: list[discord.ScheduledEvent], value: str, /) -> discord.ScheduledEvent:
+        return next(
+            e
+            for e in values
+            if e.name.casefold() == value.casefold()
+            or str(e.id) == value
+            or e.url.lower() == value.lower()
+        )
+
+    async def transform(self, itx: Interaction, value: str, /) -> discord.ScheduledEvent:
+        if itx.guild is None:
             msg = "Tried transforming event outside of guild"
             raise app_commands.NoPrivateMessage(msg) from None
 
-        # By default we want case-insensitive. On the case there are events with the same name,
-        # The user should just use the event ID / link instead.
-        value = value.casefold()
-        itx_guild: discord.Guild = interaction.guild
-        client = interaction.client
-        guilds = client.guilds
-
-        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(itx_guild.id, [])
-        result = next((e for e in events if e.name == value or str(e.id) == value), None)
-
-        if result is not None:
-            client.info(
-                "useful.interested",
-                "%s is already cached for guild %d.",
-                value,
-                itx_guild.id,
-            )
+        client = itx.client
+        guild: discord.Guild | None = itx.guild
+        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(guild.id, [])
+        result: discord.ScheduledEvent | None = None
+        try:
+            result = ScheduledEventTransformer._get_cached(events, value)
+        except StopIteration:
+            client.info("useful", "%s is not yet cached for guild %d", value, guild.id)
+        else:
+            client.info("useful", "%s is already cached for guild %d.", value, guild.id)
             return result
 
-        client.info("useful.interested", "%s is not yet cached for guild %d", value, itx_guild.id)
+        match = DynamoTransformer._get_id_match(value)
 
-        if match := re.compile(ID_REGEX).match(value):
+        if match:
+            # ID match
             event_id = int(match.group(1))
-            result = itx_guild.get_scheduled_event(event_id)
-            if result is None:
-                result = next((g.get_scheduled_event(event_id) for g in guilds), None)
-        if match := re.match(URL_REGEX, value, flags=re.IGNORECASE):
-            guild = interaction.client.get_guild(int(match.group("guild_id")))
-            if guild is not None:
-                result = guild.get_scheduled_event(int(match.group("event_id")))
+            result = guild.get_scheduled_event(event_id)
         else:
-            result = discord.utils.get(itx_guild.scheduled_events, name=value)
-            if result is None:
-                result = next(
-                    (discord.utils.get(g.scheduled_events, name=value) for g in guilds),
-                    None,
-                )
+            pattern = (
+                r"https?://(?:(ptb|canary|www)\.)?discord\.com/events/"
+                r"(?P<guild_id>[0-9]{15,20})/"
+                r"(?P<event_id>[0-9]{15,20})$"
+            )
+            match = re.match(pattern, value, flags=re.IGNORECASE)
+            if match:
+                # URL match
+                guild = itx.client.get_guild(int(match.group("guild_id")))
 
+                if guild is not None:
+                    event_id = int(match.group("event_id"))
+                    result = guild.get_scheduled_event(event_id)
+            # lookup by name
+            else:
+                result = discord.utils.get(guild.scheduled_events, name=value)
         if result is None:
             raise app_commands.TransformerError(value, self.type, self) from None
 
-        _guild_events_cache[itx_guild.id].append(result)
+        if not events:
+            _guild_events_cache[itx.guild.id] = [result]
+        else:
+            _guild_events_cache[itx.guild.id].append(result)
+
         return result
 
     @property
@@ -80,9 +99,9 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):  # type: ignore[reportUn
 )
 @app_commands.guild_only
 @app_commands.describe(
-    event="The name, URL, or Id of the event. "
-    "Name is case-insensitive. For specifity, use its URL or Id.",
-    ephemeral="Send privately.",
+    event="The name, URL, or Id of the event"
+    "Name is case-insensitive. For specifity, use its URL or Id",
+    ephemeral="Send privately",
 )
 async def interested(
     itx: Interaction,
