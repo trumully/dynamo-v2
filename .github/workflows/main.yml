@@ -12,10 +12,15 @@ jobs:
             
             - name: Install the latest version of uv
               uses: astral-sh/setup-uv@v5
-            
+              with:
+                enable-cache: true
+                cache-dependency-glob: |
+                  "**/pyproject.toml"
+                  "**/uv.lock"
+
             - uses: actions/setup-node@v4
               with:
                 node-version: '18'
 
             - run: >
-                uv run build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}
+                uv run --frozen build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}

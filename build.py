@@ -6,7 +6,7 @@
 import argparse
 import os
 from pathlib import Path
-from subprocess import PIPE, Popen  # noqa: S404
+from subprocess import Popen  # noqa: S404
 
 _IS_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
@@ -33,17 +33,6 @@ def run(*command: str | Path) -> None:
         raise RuntimeError(msg) from None
 
 
-def get_output(*command: str | Path) -> str:
-    process = Popen(command, stdout=PIPE)  # noqa: S603
-    stdout, _ = process.communicate()
-
-    if process.returncode != 0:
-        msg = f"{command} failed with exit code {process.returncode}"
-        raise RuntimeError(msg) from None
-
-    return stdout.decode("utf-8")
-
-
 def main() -> None:
     root = Path(__file__).parent
     os.unsetenv("VIRTUAL_ENV")  # avoids warning when calling uv
@@ -54,11 +43,10 @@ def main() -> None:
 
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
-    pyproject = root / "pyproject.toml"
     if args.check:
         run("uvx", "ruff", "check")
         run("uvx", "ruff", "format", "--diff")
-        run("uv", "run", npx, "--yes", "pyright@1.1.398", "-p", pyproject)
+        run("uv", "run", "--frozen", npx, "--yes", "pyright@1.1.398")
 
     dist = root / "dist"
     run("uv", "build", "--out-dir", dist)
