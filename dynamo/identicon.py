@@ -159,7 +159,7 @@ async def get_identicon(
     ephemeral: bool = False,
 ) -> None:
     seed_bytes = os.urandom(8) if value is None or not value else value.encode()
-    seed = int.from_bytes(seed_bytes, "big", signed=True)
+    seed = int.from_bytes(seed_bytes, "big")
     title = value or str(seed)
 
     embed, file = await embed_identicon(seed, title)
