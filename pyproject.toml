@@ -5,7 +5,7 @@ target-version = "py313"
 preview = true
 
 [tool.ruff.format]
-line-ending = "lf"
+line-ending = "cr-lf"
 
 [tool.ruff.lint]
 select = [
@@ -83,6 +83,11 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 dynamo = "dynamo.cli:main"
+
+[dependency-groups]
+dev = [
+    "ruff~=0.11.2",
+]
 
 
 [project]

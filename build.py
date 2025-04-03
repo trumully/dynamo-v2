@@ -44,8 +44,8 @@ def main() -> None:
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
     if args.check:
-        run("uvx", "ruff", "check")
-        run("uvx", "ruff", "format", "--diff")
+        run("uv", "run", "--frozen", "ruff", "check")
+        run("uv", "run", "--frozen", "ruff", "format", "--diff")
         run("uv", "run", "--frozen", npx, "--yes", "pyright@1.1.398")
 
     dist = root / "dist"
