@@ -108,4 +108,4 @@ class Dynamo(discord.AutoShardedClient):
         self._log(name, INFO, message, *args)
 
     def bug(self, name: str, message: str, *args: object) -> None:
-        self._log(name, ERROR, message, *args, exc_info=True)
+        self._log(name, ERROR, f"BUG: {message}", *args, exc_info=True)

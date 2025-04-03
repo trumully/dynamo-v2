@@ -20,7 +20,7 @@ from async_utils.sig_service import SignalService, SpecialExit
 from . import _type_shim as t
 from ._type import HasExports
 from .utils.files import get_token
-from .utils.logging import with_logging
+from .utils.logs import with_logging
 
 log = logging.getLogger(__name__)
 
