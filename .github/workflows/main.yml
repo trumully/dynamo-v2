@@ -15,12 +15,12 @@ jobs:
               with:
                 enable-cache: true
                 cache-dependency-glob: |
-                  "**/pyproject.toml"
-                  "**/uv.lock"
+                  pyproject.toml
+                  uv.lock
 
             - uses: actions/setup-node@v4
               with:
-                node-version: '18'
+                node-version: 20
 
             - run: >
                 uv run --frozen build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}
