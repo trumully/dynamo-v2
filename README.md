@@ -5,29 +5,29 @@
 
 ## Set up
 ### Preqrequisites 
-```pwsh
+```sh
 winget add --id Python.Python.3.13 -e
 winget add --id astral-sh.uv -e
 ```
 
 ### Clone repository
-```pwsh
+```sh
 git clone https://github.com/trumully/dynamo-v2.git
 ```
 
 ### Sync
-```pwsh
+```sh
 cd dynamo
 uv sync
 ```
 
 ## Using
 ### Check
-```pwsh
+```sh
 uv run build.py --check
 ```
 
 ### Run
-```pwsh
+```sh
 uv run dynamo
 ```
