@@ -17,8 +17,7 @@ import threading
 import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
-from . import _type_shim as t
-from ._type import HasExports
+from . import _typings as t
 from .utils.files import get_token
 from .utils.logs import with_logging
 
@@ -30,10 +29,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     asyncio.set_event_loop(loop)
 
     from . import identicon, useful
+    from .bot import Dynamo, HasExports
 
     initial_exts: list[HasExports] = [useful, identicon]
-
-    from .bot import Dynamo
 
     intents = discord.Intents.default()
     intents.members = True

@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 import msgspec
 
-from dynamo import _type_shim as t
+from dynamo import _typings as t
 from dynamo._type import CoroFn
 
 encoder = msgspec.json.Encoder()

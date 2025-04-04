@@ -8,7 +8,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from queue import SimpleQueue
 
-from dynamo import _type_shim as t
+from dynamo import _typings as t
 
 from .files import platformdir, resolve_path_with_links
 

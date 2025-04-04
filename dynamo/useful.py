@@ -8,9 +8,9 @@ from async_utils.lru import LRU
 from discord import AppCommandOptionType, app_commands
 from discord.app_commands import Transform
 
-from ._type import BotExports, DynamoTransformer
-from .bot import Interaction
+from .bot import BotExports, Interaction
 from .utils.logic import process_async_iterable
+from .utils.transformers import DynamoTransformer
 
 _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
 

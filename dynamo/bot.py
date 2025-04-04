@@ -7,12 +7,23 @@ import discord
 from discord import app_commands
 from discord.abc import Snowflake
 
-from . import _type_shim as t
-from ._type import HasExports
+from . import _typings as t
 from .utils.files import platformdir, resolve_path_with_links
 from .utils.logic import to_json
 
 type Interaction = discord.Interaction[Dynamo]
+
+
+type ACommand = app_commands.Command[t.Any, t.Any, t.Any]
+type AppCommandTypes = app_commands.Group | ACommand | app_commands.ContextMenu
+
+
+class BotExports(t.NamedTuple):
+    commands: list[AppCommandTypes] | None = None
+
+
+class HasExports(t.Protocol):
+    exports: BotExports
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:

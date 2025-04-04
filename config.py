@@ -1,5 +1,5 @@
 from dynaconf.typed import Dynaconf, Options, Validator  # type: ignore[reportMissingTypeStubs]
-from dynamo import _type_shim as t
+from dynamo import _typings as t
 
 # A discord bot token is a string that matches the following pattern:
 # >>> "[M|N|O]XXXXXXXXXXXXXXXXXXXXXXX[XX].XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"

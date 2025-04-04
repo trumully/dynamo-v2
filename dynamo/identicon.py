@@ -11,9 +11,8 @@ import discord
 from discord import app_commands
 from PIL import Image
 
-from . import _type_shim as t
-from ._type import BotExports
-from .bot import Interaction
+from . import _typings as t
+from .bot import BotExports, Interaction
 from .utils.wrappers import executor_function
 
 IDENTICON_SIZE = 500
