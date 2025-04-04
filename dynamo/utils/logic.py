@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Coroutine
 
 import msgspec
 
 from dynamo import _typings as t
-from dynamo._type import CoroFn
 
 encoder = msgspec.json.Encoder()
 encode = encoder.encode
 decoder = msgspec.json.Decoder()
+
+type Coro[R] = Coroutine[t.Any, t.Any, R]
+type CoroFn[**P, R] = Callable[P, Coro[R]]
 
 
 class AiterCloseable(t.Protocol):
