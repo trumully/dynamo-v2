@@ -1,26 +1,27 @@
 on:
-    pull_request:
-    push:
-        branches:
-            - main
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-    everything:
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v4
-            
-            - name: Install the latest version of uv
-              uses: astral-sh/setup-uv@v5
-              with:
-                enable-cache: true
-                cache-dependency-glob: |
-                  pyproject.toml
-                  uv.lock
+  everything:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
 
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
 
-            - run: >
-                uv run --frozen build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: >
+          uv run --frozen build.py ${{ github.event_name == 'pull_request' && '--check' || ''}}
