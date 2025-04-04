@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.13"
-# dependencies = []
+# dependencies = [
+#     "ruff~=0.11.2",
+# ]
 # ///
 
 import argparse
