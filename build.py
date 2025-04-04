@@ -44,9 +44,9 @@ def main() -> None:
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
     if args.check:
-        run("uv", "run", "--frozen", "ruff", "check")
-        run("uv", "run", "--frozen", "ruff", "format", "--diff")
-        run("uv", "run", "--frozen", npx, "--yes", "pyright@1.1.398")
+        run("uv", "run", "ruff", "check")
+        run("uv", "run", "ruff", "format", "--diff")
+        run("uv", "run", npx, "--yes", "pyright@1.1.398")
 
     dist = root / "dist"
     run("uv", "build", "--out-dir", dist)

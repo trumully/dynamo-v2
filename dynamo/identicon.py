@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import random
 from collections.abc import Sequence
@@ -31,26 +32,8 @@ EPSILON = 1e-6
 log = logging.getLogger(__name__)
 
 
-class RGB(t.NamedTuple):
-    r: int
-    g: int
-    b: int
-
-    def __sub__(self, other: object) -> tuple[int, int, int]:
-        if isinstance(other, RGB):
-            return self.r - other.r, self.g - other.g, self.b - other.b
-        return NotImplemented
-
-    @staticmethod
-    def colors_similar(x: RGB, y: RGB) -> bool:
-        p_dist = x.perceived_distance_from(y)
-        e_dist = x.euclidean_distance_from(y)
-
-        thresh = SIMILARITY_CUTOFF * (1 + abs((sum(x) / 765) - (sum(y) / 765)))
-
-        return p_dist <= (thresh + EPSILON) and e_dist <= (thresh + EPSILON)
-
-    def perceived_distance_from(self, other: RGB) -> float:
+class Color(discord.Color):
+    def perceived_distance_from(self, other: discord.Color) -> float:
         """Uses cmetric formula from `CompuPhase`_:
 
         `ΔC = √((2 + r̄/256) * ΔR² + 4 * ΔG² + (2 + (255 - r̄)/256) * ΔB²)`
@@ -60,20 +43,48 @@ class RGB(t.NamedTuple):
         """
         r_mean = (self.r + other.r) >> 1
         # delta of r, g, b each is squared
-        r, g, b = (x**2 for x in (self - other))
-        distance = (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8) ** 0.5
+        color_delta = (self.r - other.r, self.g - other.g, self.b - other.b)
+        r, g, b = (x**2 for x in color_delta)
+        distance = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
         return distance / MAX_PERCEIVED
 
-    def euclidean_distance_from(self, other: RGB) -> float:
-        return (sum(x**2 for x in (self - other)) ** 0.5) / MAX_EUCLEDIAN
+    def euclidean_distance_from(self, other: Color) -> float:
+        color_delta = (self.r - other.r, self.g - other.g, self.b - other.b)
+        return (math.sqrt(sum(x**2 for x in color_delta))) / MAX_EUCLEDIAN
+
+    def is_similar_to(self, other: Color) -> bool:
+        p_dist = self.perceived_distance_from(other)
+        e_dist = self.euclidean_distance_from(other)
+        x = sum((self.r, self.g, self.b))
+        y = sum((other.r, other.g, other.b))
+
+        thresh = SIMILARITY_CUTOFF * (1 + abs((x / MAX_PERCEIVED) - (y / MAX_PERCEIVED)))
+
+        return p_dist <= (thresh + EPSILON) and e_dist <= (thresh + EPSILON)
 
     @classmethod
-    def from_hex(cls: type[t.Self], h: str) -> t.Self:
-        return cls(*(int(h.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)))
+    def from_random(cls: type[t.Self]) -> t.Self:
+        return cls.from_rgb(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+    @classmethod
+    def white(cls: type[t.Self]) -> t.Self:
+        """A factory method that returns a :class:`Color` with a value of ``0xFFFFFF``.
+
+        .. colour:: #FFFFFF
+        """
+        return cls(0xFFFFFF)
+
+    @classmethod
+    def black(cls: type[t.Self]) -> t.Self:
+        """A factory method that returns a :class:`Color` with a value of ``0x000000``.
+
+        .. colour:: #000000
+        """
+        return cls(0x000000)
 
 
-WHITE = RGB(255, 255, 255)
-BLACK = RGB(0, 0, 0)
+WHITE = Color.white()
+BLACK = Color.black()
 
 
 def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
@@ -93,25 +104,25 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
     return result
 
 
-def get_colors(seed: int) -> tuple[RGB, RGB]:
+def get_colors(seed: int) -> tuple[Color, Color]:
     random.seed(seed)
-    primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    primary = Color.from_random()
+    secondary = Color.from_random()
 
-    while RGB.colors_similar(primary, secondary):
-        primary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        secondary = RGB(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    while primary.is_similar_to(secondary):
+        primary = Color.from_random()
+        secondary = Color.from_random()
 
     return primary, secondary
 
 
 def color_matrix(
     matrix: Matrix[int],
-    primary: RGB = BLACK,
-    secondary: RGB = WHITE,
-) -> Matrix[RGB]:
+    primary: Color = BLACK,
+    secondary: Color = WHITE,
+) -> Matrix[Color]:
     width, height = len(matrix[0]), len(matrix)
-    colored: Matrix[RGB] = [[primary] * width for _ in range(height)]
+    colored: Matrix[Color] = [[primary] * width for _ in range(height)]
     for i in range(height):
         for j in range(width):
             colored[i][j] = primary if matrix[i][j] == 1 else secondary
@@ -120,7 +131,7 @@ def color_matrix(
 
 
 @executor_function
-def make_identicon(matrix: Matrix[RGB]) -> bytes:
+def make_identicon(matrix: Matrix[Color]) -> bytes:
     buffer = BytesIO()
 
     matrix_width, matrix_height = len(matrix[0]), len(matrix)
@@ -128,7 +139,7 @@ def make_identicon(matrix: Matrix[RGB]) -> bytes:
     image: Image.Image = Image.new("RGB", (matrix_width, matrix_height), 255)
     for i in range(matrix_height):
         for j in range(matrix_width):
-            r, g, b = matrix[i][j]
+            r, g, b = matrix[i][j].to_rgb()
             image.putpixel((i, j), (r, g, b))
 
     image = image.resize((IDENTICON_SIZE, IDENTICON_SIZE), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
@@ -146,7 +157,7 @@ async def embed_identicon(seed: int, title: str) -> tuple[discord.Embed, discord
     identicon_bytes = await make_identicon(colors)
 
     file = discord.File(BytesIO(identicon_bytes), filename="identicon.png")
-    embed = discord.Embed(title=title)
+    embed = discord.Embed(title=title, color=primary)
     embed.set_image(url="attachment://identicon.png")
     return embed, file
 

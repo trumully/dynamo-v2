@@ -5,7 +5,7 @@ target-version = "py313"
 preview = true
 
 [tool.ruff.format]
-line-ending = "cr-lf"
+line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
