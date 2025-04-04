@@ -8,12 +8,29 @@ from collections.abc import Sequence
 from io import BytesIO
 
 import discord
-from discord import app_commands
+from discord import AppCommandOptionType, app_commands
+from discord.app_commands import Transform
 from PIL import Image
 
 from . import _typings as t
 from .bot import BotExports, Interaction
+from .utils.transformers import DynamoTransformer
 from .utils.wrappers import executor_function
+
+
+class ColorTransformer(DynamoTransformer):
+    """Color transformer for the :class:`Color` class."""
+
+    async def transform(self, itx: Interaction, value: str, /) -> Color:
+        try:
+            return t.cast(Color, Color.from_str(value))
+        except ValueError:
+            raise app_commands.TransformerError(value, self.type, self) from None
+
+    @property
+    def type(self) -> AppCommandOptionType:
+        return AppCommandOptionType.string
+
 
 IDENTICON_SIZE = 500
 
@@ -35,7 +52,10 @@ class Color(discord.Color):
     def perceived_distance_from(self, other: discord.Color) -> float:
         """Uses cmetric formula from `CompuPhase`_:
 
-        `ΔC = √((2 + r̄/256) * ΔR² + 4 * ΔG² + (2 + (255 - r̄)/256) * ΔB²)`
+        Note that `ΔR = R1 - R2`, similarly for green and blue components.
+
+        Formula:
+            `ΔC = √((2 + r̄/256) * ΔR² + 4 * ΔG² + (2 + (255 - r̄)/256) * ΔB²)`
 
         .. _CompuPhase:
             https://www.compuphase.com/cmetric.htm
@@ -69,31 +89,33 @@ class Color(discord.Color):
     def white(cls: type[t.Self]) -> t.Self:
         """A factory method that returns a :class:`Color` with a value of ``0xFFFFFF``.
 
-        .. colour:: #FFFFFF
+        color:
+            #FFFFFF
         """
         return cls(0xFFFFFF)
 
     @classmethod
     def black(cls: type[t.Self]) -> t.Self:
-        """A factory method that returns a :class:`Color` with a value of ``0x000000``.
+        """A factory method that returns a :class:`Color` with a value of ``0x0``.
 
-        .. colour:: #000000
+        color:
+            #000000
         """
-        return cls(0x000000)
+        return cls(0x0)
 
 
 WHITE = Color.white()
 BLACK = Color.black()
 
 
-def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
+def make_matrix(seed: int, size: int = 4) -> Matrix[int]:
     random.seed(seed)
     width, height = size, size * 2
     result = [([0] * width) for _ in range(height)]
     for i in range(height):
         for j in range(width):
             is_colored = round(random.random(), 2)
-            if is_colored <= 0.6:
+            if is_colored <= 0.42:
                 result[i][j] = 1
 
     # flip
@@ -103,28 +125,25 @@ def make_matrix(seed: int, size: int = 6) -> Matrix[int]:
     return result
 
 
-def get_colors(seed: int) -> tuple[Color, Color]:
+def cycle_similar_color(relative_color: Color, *, color_to_change: Color) -> Color:
+    """Get a different color that is not similar to the given color."""
+    while color_to_change.is_similar_to(relative_color):
+        color_to_change = Color.from_random()
+    return color_to_change
+
+
+def get_foreground_color(seed: int, background: Color) -> Color:
     random.seed(seed)
-    primary = Color.from_random()
-    secondary = Color.from_random()
-
-    while primary.is_similar_to(secondary):
-        primary = Color.from_random()
-        secondary = Color.from_random()
-
-    return primary, secondary
+    foreground = Color.from_random()
+    return cycle_similar_color(background, color_to_change=foreground)
 
 
-def color_matrix(
-    matrix: Matrix[int],
-    primary: Color = BLACK,
-    secondary: Color = WHITE,
-) -> Matrix[Color]:
+def color_matrix(matrix: Matrix[int], foreground: Color, background: Color) -> Matrix[Color]:
     width, height = len(matrix[0]), len(matrix)
-    colored: Matrix[Color] = [[primary] * width for _ in range(height)]
+    colored: Matrix[Color] = [[foreground] * width for _ in range(height)]
     for i in range(height):
         for j in range(width):
-            colored[i][j] = primary if matrix[i][j] == 1 else secondary
+            colored[i][j] = foreground if matrix[i][j] == 1 else background
 
     return colored
 
@@ -149,37 +168,52 @@ def make_identicon(matrix: Matrix[Color]) -> bytes:
     return buffer.getvalue()
 
 
-async def embed_identicon(seed: int, title: str) -> tuple[discord.Embed, discord.File]:
+async def embed_identicon(
+    seed: int,
+    title: str,
+    foreground: Color | None,
+    background: Color,
+) -> tuple[discord.Embed, discord.File]:
     matrix = make_matrix(seed)
-    primary, secondary = get_colors(seed)
-    colors = color_matrix(matrix, primary, secondary)
+    if foreground is None:
+        foreground = get_foreground_color(seed, background)
+    colors = color_matrix(matrix, foreground, background)
     identicon_bytes = await make_identicon(colors)
 
     file = discord.File(BytesIO(identicon_bytes), filename="identicon.png")
-    embed = discord.Embed(title=title, color=primary)
+    embed = discord.Embed(title=title, color=foreground)
     embed.set_image(url="attachment://identicon.png")
     return embed, file
 
 
 @app_commands.command(name="identicon", description="Generate an identicon from a seed")
-@app_commands.describe(value="Input used to generate icon", ephemeral="Send privately")
+@app_commands.describe(
+    value="Input used to generate icon",
+    foreground="Hex, RGB, or HSV color for the foreground",
+    background="Hex, RGB, or HSV color for the background",
+    ephemeral="Send privately",
+)
 async def get_identicon(
     itx: Interaction,
     value: str | None = None,
+    foreground: Transform[Color, ColorTransformer] | None = None,
+    background: Transform[Color, ColorTransformer] = WHITE,
     ephemeral: bool = False,
 ) -> None:
-    seed_bytes = os.urandom(8) if value is None or not value else value.encode()
-    seed = int.from_bytes(seed_bytes, "big")
+    try:
+        seed = int(value)  # type: ignore[reportArgumentType]
+    except (ValueError, TypeError):
+        seed_bytes = os.urandom(8) if value is None or not value else value.encode()
+        seed = int.from_bytes(seed_bytes, "big")
     title = value or str(seed)
 
-    embed, file = await embed_identicon(seed, title)
-
+    embed, file = await embed_identicon(seed, title, foreground, background)
     await itx.response.send_message(embed=embed, file=file, ephemeral=ephemeral)
 
 
 @app_commands.context_menu(name="Identicon")
 async def identicon_context_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
-    embed, file = await embed_identicon(user.id, user.name)
+    embed, file = await embed_identicon(user.id, user.name, None, WHITE)
     await itx.response.send_message(embed=embed, file=file, ephemeral=True)
 
 
