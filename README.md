@@ -4,7 +4,7 @@
 </p>
 
 ## Set up
-### Preqrequisites 
+### Prerequisites 
 ```sh
 winget add --id Python.Python.3.13 -e
 winget add --id astral-sh.uv -e
