@@ -8,29 +8,12 @@ from collections.abc import Sequence
 from io import BytesIO
 
 import discord
-from discord import AppCommandOptionType, app_commands
-from discord.app_commands import Transform
+from discord import app_commands
 from PIL import Image
 
 from . import _typings as t
 from .bot import BotExports, Interaction
-from .utils.transformers import DynamoTransformer
 from .utils.wrappers import executor_function
-
-
-class ColorTransformer(DynamoTransformer):
-    """Color transformer for the :class:`Color` class."""
-
-    async def transform(self, itx: Interaction, value: str, /) -> Color:
-        try:
-            return t.cast(Color, Color.from_str(value))
-        except ValueError:
-            raise app_commands.TransformerError(value, self.type, self) from None
-
-    @property
-    def type(self) -> AppCommandOptionType:
-        return AppCommandOptionType.string
-
 
 IDENTICON_SIZE = 500
 
@@ -80,6 +63,10 @@ class Color(discord.Color):
         thresh = SIMILARITY_CUTOFF * (1 + abs((x / MAX_PERCEIVED) - (y / MAX_PERCEIVED)))
 
         return p_dist <= (thresh + EPSILON) and e_dist <= (thresh + EPSILON)
+
+    @classmethod
+    async def transform(cls: type[t.Self], itx: Interaction, value: str, /) -> t.Self:
+        return t.cast(t.Self, Color.from_str(value))
 
     @classmethod
     def from_random(cls: type[t.Self]) -> t.Self:
@@ -196,8 +183,8 @@ async def embed_identicon(
 async def get_identicon(
     itx: Interaction,
     value: str | None = None,
-    foreground: Transform[Color, ColorTransformer] | None = None,
-    background: Transform[Color, ColorTransformer] = WHITE,
+    foreground: Color | None = None,
+    background: Color = WHITE,
     ephemeral: bool = False,
 ) -> None:
     try:
