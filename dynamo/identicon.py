@@ -176,8 +176,8 @@ async def embed_identicon(
 @app_commands.command(name="identicon", description="Generate an identicon from a seed")
 @app_commands.describe(
     value="Input used to generate icon",
-    foreground="Hex, RGB, or HSV color for the foreground",
-    background="Hex, RGB, or HSV color for the background",
+    foreground="RGB or hexcode color for the foreground",
+    background="RGB or hexcode color for the background",
     ephemeral="Send privately",
 )
 async def get_identicon(
