@@ -7,6 +7,7 @@ from dynamo import _typings as t
 bot_regex = r"[MNO][a-zA-Z\d_-]{23,25}\.[a-zA-Z\d_-]{6}\.[a-zA-Z\d_-]{27}"
 
 
+# https://github.com/dynaconf/dynaconf/pull/1107
 class Settings(Dynaconf):
     dynaconf_options = Options(
         envvar_prefix="DYNAMO",

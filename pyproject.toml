@@ -1,5 +1,5 @@
 [tool.ruff]
-src=["dynamo"]
+src = ["dynamo"]
 line-length = 100
 target-version = "py313"
 preview = true
@@ -76,7 +76,6 @@ convention = "google"
 "typing.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
 "typing_extensions.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
 
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -110,7 +109,6 @@ dependencies = [
 
 [project.urls]
 homepage = "https://github.com/trumully/dynamo-v2"
-
 
 [tool.pyright]
 include = ["dynamo"]
