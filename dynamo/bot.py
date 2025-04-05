@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from hashlib import blake2b
 from logging import ERROR, INFO, getLogger
 
+import apsw
 import discord
-from discord import app_commands
+from async_utils.lru import LRU
+from async_utils.waterfall import Waterfall
+from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
 from . import _typings as t
@@ -24,6 +28,10 @@ class BotExports(t.NamedTuple):
 
 class HasExports(t.Protocol):
     exports: BotExports
+
+
+class PreemptiveBlocked(Exception):
+    pass
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
@@ -54,6 +62,17 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             allowed_installs=installs,
         )
 
+    @t.override
+    async def interaction_check(self, interaction: Interaction, /) -> bool:  # noqa: PLR6301
+        if await interaction.client.is_blocked(interaction.user.id):
+            resp = interaction.response
+            if interaction.type is InteractionType.application_command:
+                await resp.send_message("Blocked", ephemeral=True)
+            else:
+                await resp.defer(ephemeral=True)
+            return False
+        return True
+
     async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
         commands = self._get_all_commands(guild=guild)
 
@@ -77,14 +96,51 @@ class Dynamo(discord.AutoShardedClient):
         self,
         *args: object,
         intents: discord.Intents | None = None,
+        conn: apsw.Connection,
+        read_conn: apsw.Connection,
         initial_exts: list[HasExports],
         **kwargs: object,
     ) -> None:
         intents = intents or discord.Intents.none()
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
+        self.conn = conn
+        self.read_conn = read_conn
+        self.block_cache: LRU[int, bool] = LRU(512)
+        self._last_interact_waterfall = Waterfall(10, 100, self.update_last_seen)
         self.initial_exts = initial_exts
         self.logger = getLogger("dynamo")
+
+    async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
+        with self.conn:
+            self.conn.executemany(
+                """
+                INSERT INTO discord_users (user_id, last_interaction)
+                VALUES (?, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id)
+                DO UPDATE SET last_interaction=excluded.last_interaction;
+                """,
+                ((user_id,) for user_id in user_ids),
+            )
+
+    async def is_blocked(self, user_id: int) -> bool:
+        blocked = self.block_cache.get(user_id, None)
+        if blocked is not None:
+            return blocked
+
+        row = self.read_conn.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM discord_users
+                WHERE user_id=? AND is_blocked LIMIT 1
+            );
+            """,
+            (user_id,),
+        ).fetchone()
+        assert row is not None, "SELECT EXISTS top level query"
+        b: bool = row[0]
+        self.block_cache[user_id] = b
+        return b
 
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
@@ -103,6 +159,14 @@ class Dynamo(discord.AutoShardedClient):
                 await self.tree.sync()
                 fp.seek(0)
                 fp.write(tree_hash)
+
+    async def start(self, token: str, *, reconnect: bool = True) -> None:
+        self._last_interact_waterfall.start()
+        await super().start(token, reconnect=reconnect)
+
+    async def close(self) -> None:
+        await super().close()
+        await self._last_interact_waterfall.stop()
 
     def _log(
         self,

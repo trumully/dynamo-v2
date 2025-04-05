@@ -99,6 +99,7 @@ classifiers = [
 ]
 license = { text = "Unlicense" }
 dependencies = [
+    "apsw>=3.49.1.0",
     "discord-py[speed]~=2.6.0",
     "dynaconf~=3.3.0.dev0",
     "mikeshardmind-async-utils~=2025.3.12",

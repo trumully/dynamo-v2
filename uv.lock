@@ -56,6 +56,24 @@ wheels = [
 ]
 
 [[package]]
+name = "apsw"
+version = "3.49.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/44/df6b76e11ff1bc412d09bbd433a14203395e05ea5d28a01a0a321d6c4da5/apsw-3.49.1.0.tar.gz", hash = "sha256:24d8ee5dde78acabe7ef3a49a187dbab21da287c6a2e1313a6b1920e16b43c1c", size = 1044454 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1f/65/1346c36f9cd74971bf954c02a48fd13603058d155d3db4998fc15ca7cd29/apsw-3.49.1.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:e6dbd66e2d81c45dfbd5ab8614d9ab5b9b32236382eea52591b4204d22973b9b", size = 1836741 },
+    { url = "https://files.pythonhosted.org/packages/c1/77/ea477b9208b3089036020276b6db04db6fcf20e39a03d163ee137ac29cca/apsw-3.49.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:dc8caef384dc803d6a0f92a6419783da801c8462d56125d5e0f1c462c11a8fcd", size = 1774486 },
+    { url = "https://files.pythonhosted.org/packages/d3/0e/55ad71b4c27763d73bae480f5535188c85cae0a814bfb0ccdb5c027be66d/apsw-3.49.1.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:735581dcb8bde59ae21e7f90e254a403061f5032c0ae9f4796d9768fee382c99", size = 6530968 },
+    { url = "https://files.pythonhosted.org/packages/84/28/1fae999658e29a8e9a6bf41e759b589caba4e5d9c81cebfc2fa14e2fa3a4/apsw-3.49.1.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cf363617c7806de96130359506a07b09da973d82945a232921702ab6340cf8a6", size = 6445379 },
+    { url = "https://files.pythonhosted.org/packages/c7/0e/b3044f79914d15f404b14b690dc61d7730bdc2d34e438a5029815ca64f46/apsw-3.49.1.0-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ff983e59fb495d9681aeaec09f1942aa96d825a07f41ec3389364016c951f94a", size = 6398850 },
+    { url = "https://files.pythonhosted.org/packages/fd/30/23ecee3e6c1c525c5bfaac684fced78dec632f1d5ff50b60ceb9e74707d7/apsw-3.49.1.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:4fb4cbf7bcf49540a5f40792d1fa4b9a066795db2f3d118a9dbefc8d076d7ed7", size = 6545439 },
+    { url = "https://files.pythonhosted.org/packages/39/e9/efe672bba55b76d464e5b23edef474c1fa896941ebc38d45b78ee65b51b8/apsw-3.49.1.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:a8883ec74c436600c8e8ad37c39155c6e9fe2d6453361ab2ff5f3c9311527a39", size = 6452723 },
+    { url = "https://files.pythonhosted.org/packages/a4/d7/784c21c1f9839a6030b7ff34c24ec5a82e551fc3cfe350319ca5082af765/apsw-3.49.1.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:8bdbbf656155297564998e808287611fdddb72e2bc871f4a9dd88d6725daeb34", size = 6429982 },
+    { url = "https://files.pythonhosted.org/packages/86/dc/1c2daaa6fd9ba2ec758719cd257c4749cec5a4219a9e85921291c2e91ede/apsw-3.49.1.0-cp313-cp313-win32.whl", hash = "sha256:ba26130de287e3a0b3c92d98c6aa22d9eed885f7eb50318614cdacbca5a3239f", size = 1497380 },
+    { url = "https://files.pythonhosted.org/packages/0b/48/736c5d73e66b3ba585d8fd99bc2a2de209257aeaea62afbd22700bac9b9b/apsw-3.49.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:04ba0a51933ebc9230f848781b1d2aa676b69a915850c598c402b304100ceb49", size = 1659671 },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -172,6 +190,7 @@ name = "dynamo"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "apsw" },
     { name = "discord-py", extra = ["speed"] },
     { name = "dynaconf" },
     { name = "mikeshardmind-async-utils" },
@@ -182,6 +201,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "apsw", specifier = ">=3.49.1.0" },
     { name = "discord-py", extras = ["speed"], git = "https://github.com/mikeshardmind/discord.py?rev=salamander-reloaded" },
     { name = "dynaconf", git = "https://github.com/dynaconf/dynaconf" },
     { name = "mikeshardmind-async-utils", git = "https://github.com/mikeshardmind/async-utils" },
