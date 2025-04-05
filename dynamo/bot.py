@@ -123,6 +123,10 @@ class Dynamo(discord.AutoShardedClient):
                 ((user_id,) for user_id in user_ids),
             )
 
+    async def on_interaction(self, interaction: Interaction) -> None:
+        if not await self.is_blocked(interaction.user.id):
+            self._last_interact_waterfall.put(interaction.user.id)
+
     async def is_blocked(self, user_id: int) -> bool:
         blocked = self.block_cache.get(user_id, None)
         if blocked is not None:
