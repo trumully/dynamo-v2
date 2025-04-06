@@ -50,9 +50,9 @@ class ScheduledEventTransformer(DynamoTransformer):
         try:
             result = ScheduledEventTransformer._get_cached(events, value)
         except StopIteration:
-            client.info("useful", "%s is not yet cached for guild %d", value, guild.id)
+            client.debug("useful", "%s is not yet cached for guild %d", value, guild.id)
         else:
-            client.info("useful", "%s is already cached for guild %d.", value, guild.id)
+            client.debug("useful", "%s is already cached for guild %d.", value, guild.id)
             return result
 
         match = DynamoTransformer._get_id_match(value)
@@ -119,11 +119,14 @@ async def interested(
 async def interested_error(itx: Interaction, error: app_commands.AppCommandError) -> None:
     send = partial(itx.response.send_message, ephemeral=True)
     msg = "An unexpected error ocurred. Please try again."
+    log = itx.client.error
     if isinstance(error, app_commands.TransformerError):
         msg = "That's not a valid event in this guild. Did you enter the correct name or id?"
-    if isinstance(error, app_commands.NoPrivateMessage):
+    elif isinstance(error, app_commands.NoPrivateMessage):
         msg = "This command cannot be used outside of a guild context."
-    itx.client.bug("useful.interested", msg)
+    else:
+        log = itx.client.bug
+    log("useful.interested", msg)
     await send(content=msg)
 
 

@@ -40,9 +40,8 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
 
     from .bot import Dynamo
 
-    intents = discord.Intents.default()
-    intents.members = True
-    intents.guild_scheduled_events = True
+    intents = discord.Intents.none()
+    intents.guilds = True
 
     read_conn = apsw.Connection(db_path, flags=apsw.SQLITE_OPEN_READONLY)
     rw_conn = apsw.Connection(db_path)

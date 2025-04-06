@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import platformdirs
-from config import settings
 
 platformdir = platformdirs.PlatformDirs("dynamo", "trumully", roaming=False)
 
@@ -27,4 +26,6 @@ ROOT = resolve_path_with_links(Path(__file__).parent.parent)
 
 
 def get_token() -> str:
+    from config import settings
+
     return os.getenv("DYNAMO_TOKEN") or settings.token

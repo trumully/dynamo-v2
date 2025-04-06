@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from hashlib import blake2b
-from logging import ERROR, INFO, getLogger
+from logging import DEBUG, ERROR, INFO, getLogger
 
 import apsw
 import discord
@@ -183,8 +183,16 @@ class Dynamo(discord.AutoShardedClient):
         self.logger.name = name
         self.logger.log(level, message, *args, exc_info=exc_info)
 
+    def debug(self, name: str, message: str, *args: object) -> None:
+        self._log(name, DEBUG, message, *args)
+
     def info(self, name: str, message: str, *args: object) -> None:
         self._log(name, INFO, message, *args)
 
     def bug(self, name: str, message: str, *args: object) -> None:
+        """Log when the **code** is at fault."""
         self._log(name, ERROR, f"BUG: {message}", *args, exc_info=True)
+
+    def error(self, name: str, message: str, *args: object) -> None:
+        """Log when the **user** is at fault."""
+        self._log(name, ERROR, message, *args, exc_info=True)

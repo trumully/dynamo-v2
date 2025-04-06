@@ -20,7 +20,7 @@ class AiterCloseable(t.Protocol):
 
 async def _aiterclose(iterator: AiterCloseable) -> None:
     close_method: CoroFn[[], None] | None = getattr(iterator, "__aiterclose__", None)
-    if callable(close_method):
+    if close_method is not None:
         await close_method()
 
 

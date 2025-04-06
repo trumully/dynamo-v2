@@ -64,7 +64,7 @@ class AnsiTermFormatter(logging.Formatter):
         formatter = FORMATS.get(record.levelno)
         if formatter is None:
             formatter = FORMATS[logging.DEBUG]
-        if record.exc_info:
+        if record.exc_info is not None:
             text = formatter.formatException(record.exc_info)
             record.exc_text = f"\x1b[31m{text}\x1b[0m"
         output = formatter.format(record)
