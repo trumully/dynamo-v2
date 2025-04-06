@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         Self,
         TypeVar,
         cast,
+        override,
     )
 else:
 
@@ -35,6 +36,7 @@ else:
             "Self",
             "NamedTuple",
             "Protocol",
+            "override",
             "TypeVar",
             "cast",
         }:
@@ -58,4 +60,5 @@ __all__ = (
     "Self",
     "TypeVar",
     "cast",
+    "override",
 )

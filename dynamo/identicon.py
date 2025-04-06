@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from io import BytesIO
 
 import discord
+from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image
 
@@ -136,7 +137,7 @@ def color_matrix(matrix: Matrix[int], foreground: Color, background: Color) -> M
 
 
 @executor_function
-def make_identicon(matrix: Matrix[Color]) -> bytes:
+def identicon_as_bytes(matrix: Matrix[Color]) -> bytes:
     buffer = BytesIO()
 
     matrix_width, matrix_height = len(matrix[0]), len(matrix)
@@ -155,19 +156,27 @@ def make_identicon(matrix: Matrix[Color]) -> bytes:
     return buffer.getvalue()
 
 
+@lrutaskcache()
+async def create_identicon(
+    seed: int, foreground: Color | None, background: Color
+) -> tuple[Color, bytes]:
+    matrix = make_matrix(seed)
+    if foreground is None:
+        foreground = get_foreground_color(seed, background)
+    colors = color_matrix(matrix, foreground, background)
+    idt_bytes = await identicon_as_bytes(colors)
+    return foreground, idt_bytes
+
+
 async def embed_identicon(
     seed: int,
     title: str,
     foreground: Color | None,
     background: Color,
 ) -> tuple[discord.Embed, discord.File]:
-    matrix = make_matrix(seed)
-    if foreground is None:
-        foreground = get_foreground_color(seed, background)
-    colors = color_matrix(matrix, foreground, background)
-    identicon_bytes = await make_identicon(colors)
+    foreground, idt_bytes = await create_identicon(seed, foreground, background)
 
-    file = discord.File(BytesIO(identicon_bytes), filename="identicon.png")
+    file = discord.File(BytesIO(idt_bytes), filename="identicon.png")
     embed = discord.Embed(title=title, color=foreground)
     embed.set_image(url="attachment://identicon.png")
     return embed, file
