@@ -75,21 +75,11 @@ class Color(discord.Color):
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:
-        """A factory method that returns a :class:`Color` with a value of ``0xFFFFFF``.
-
-        color:
-            #FFFFFF
-        """
         return cls(0xFFFFFF)
 
     @classmethod
     def black(cls: type[t.Self]) -> t.Self:
-        """A factory method that returns a :class:`Color` with a value of ``0x0``.
-
-        color:
-            #000000
-        """
-        return cls(0x0)
+        return cls.default()
 
 
 WHITE = Color.white()
