@@ -24,7 +24,7 @@ uv sync
 ## Using
 ### Check lint/format/typing
 ```sh
-uv run build.py --check
+uv run check.py
 ```
 
 ### Store bot token
