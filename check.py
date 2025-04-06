@@ -8,6 +8,7 @@
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from subprocess import Popen  # noqa: S404
 
@@ -42,16 +43,15 @@ def run(*command: str | Path) -> None:
         raise RuntimeError(msg) from None
 
 
+uv_run = partial(run, "uv", "run", "--active")
+
+
 def main() -> None:
-    import sysconfig
-
-    os.environ["UV_PROJECT_ENVIRONMENT"] = sysconfig.get_config_var("prefix")
-
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
-    run("uv", "run", "ruff", "check")
-    run("uv", "run", "ruff", "format", "--diff")
-    run("uv", "run", npx, "--yes", "pyright@1.1.398")
+    uv_run("ruff", "check")
+    uv_run("ruff", "format", "--diff")
+    uv_run(npx, "--yes", "pyright@1.1.398")
 
 
 if __name__ == "__main__":
