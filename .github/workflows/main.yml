@@ -32,6 +32,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: "Check Types and Linting"
+      - name: Check Types and Linting
         run: >
           uv run --frozen check.py

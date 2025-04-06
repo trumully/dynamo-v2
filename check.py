@@ -10,7 +10,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from subprocess import Popen  # noqa: S404
+from subprocess import Popen
 
 _IS_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
