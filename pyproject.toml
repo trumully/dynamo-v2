@@ -57,6 +57,12 @@ unfixable = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.per-file-ignores]
+"check.py" = [
+    "T201",  # Printing here is fine 
+    "S603"   # Input here is trusted
+]
+
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # https://discuss.python.org/t/problems-with-typeis/55410/6
 # https://discuss.python.org/t/problems-with-typeis/55410/46
