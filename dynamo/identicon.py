@@ -4,7 +4,7 @@ import logging
 import math
 import os
 import random
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
 from io import BytesIO
 
 import discord
@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 
 
 class Color(discord.Color):
-    def perceived_distance_from(self, other: discord.Color) -> float:
+    def perceived_distance_from(self, other: Color) -> float:
         """Uses cmetric formula from `CompuPhase`_:
 
         Note that `ΔR = R1 - R2`, similarly for green and blue components.
@@ -45,21 +45,24 @@ class Color(discord.Color):
             https://www.compuphase.com/cmetric.htm
         """
         r_mean = (self.r + other.r) >> 1
-        # delta of r, g, b each is squared
-        color_delta = (self.r - other.r, self.g - other.g, self.b - other.b)
-        r, g, b = (x**2 for x in color_delta)
-        distance = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
-        return distance / MAX_PERCEIVED
+        r, g, b = self._squared_delta(other)
+        dist = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
+        return dist / MAX_PERCEIVED
+
+    def _squared_delta(self, other: Color) -> Generator[int]:
+        delta_r = self.r - other.r
+        delta_g = self.g - other.g
+        delta_b = self.b - other.b
+        return (int(math.pow(x, 2)) for x in (delta_r, delta_g, delta_b))
 
     def euclidean_distance_from(self, other: Color) -> float:
-        color_delta = (self.r - other.r, self.g - other.g, self.b - other.b)
-        return (math.sqrt(sum(x**2 for x in color_delta))) / MAX_EUCLEDIAN
+        return (math.sqrt(sum(self._squared_delta(other)))) / MAX_EUCLEDIAN
 
     def is_similar_to(self, other: Color) -> bool:
         p_dist = self.perceived_distance_from(other)
         e_dist = self.euclidean_distance_from(other)
-        x = sum((self.r, self.g, self.b))
-        y = sum((other.r, other.g, other.b))
+        x = self.r + self.g + self.b
+        y = other.r + other.g + other.b
 
         thresh = SIMILARITY_CUTOFF * (1 + abs((x / MAX_PERCEIVED) - (y / MAX_PERCEIVED)))
 
