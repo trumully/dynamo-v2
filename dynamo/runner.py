@@ -177,6 +177,7 @@ def run_bot() -> None:
     apsw.connection_hooks.append(conn_hook)
 
     with with_logging():
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         loop = asyncio.new_event_loop()
         queue: asyncio.Queue[signal.Signals | SpecialExit] = asyncio.Queue()
 
