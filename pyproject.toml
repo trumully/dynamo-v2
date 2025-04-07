@@ -1,6 +1,6 @@
 [tool.ruff]
 src = ["dynamo"]
-line-length = 100
+line-length = 90
 preview = true
 
 [tool.ruff.format]
@@ -107,7 +107,7 @@ dependencies = [
     "apsw~=3.49.1.0",
     "discord-py[speed]~=2.6.0",
     "dynaconf~=3.3.0.dev0",
-    "mikeshardmind-async-utils~=2025.3.12",
+    "mikeshardmind-async-utils~=2025.4.6b0",
     "msgspec~=0.19.0",
     "pillow~=11.1.0",
     "platformdirs~=4.3.7",

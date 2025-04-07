@@ -49,6 +49,9 @@ uv_run = partial(run, "uv", "run", "--active")
 def main() -> None:
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
+    if _IS_GITHUB_ACTIONS:
+        os.environ["RUFF_OUTPUT_FORMAT"] = "github"
+
     uv_run("ruff", "check")
     uv_run("ruff", "format", "--diff")
     uv_run(npx, "--yes", "pyright@1.1.398")

@@ -1,4 +1,8 @@
-from dynaconf.typed import Dynaconf, Options, Validator  # type: ignore[reportMissingTypeStubs]
+from dynaconf.typed import (  # type: ignore[reportMissingTypeStubs]
+    Dynaconf,
+    Options,
+    Validator,
+)
 from dynamo import _typings as t
 
 # A discord bot token is a string that matches the following pattern:

@@ -45,7 +45,7 @@ class ScheduledEventTransformer(DynamoTransformer):
 
         client = itx.client
         guild: discord.Guild | None = itx.guild
-        events: list[discord.ScheduledEvent] = _guild_events_cache.setdefault(guild.id, [])
+        events = _guild_events_cache.setdefault(guild.id, [])
         result: discord.ScheduledEvent | None = None
         try:
             result = ScheduledEventTransformer._get_cached(events, value)

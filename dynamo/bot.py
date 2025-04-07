@@ -78,11 +78,9 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 
         translator = self.translator
         if translator:
-            payload = [
-                await command.get_translated_payload(self, translator) for command in commands
-            ]
+            payload = [await cmd.get_translated_payload(self, translator) for cmd in commands]
         else:
-            payload = [command.to_dict(self) for command in commands]
+            payload = [cmd.to_dict(self) for cmd in commands]
 
         return payload
 

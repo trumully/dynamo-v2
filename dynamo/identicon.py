@@ -46,7 +46,9 @@ class Color(discord.Color):
         """
         r_mean = (self.r + other.r) >> 1
         r, g, b = self._squared_delta(other)
-        dist = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
+        dist = math.sqrt(
+            (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8)
+        )
         return dist / MAX_PERCEIVED
 
     def _squared_delta(self, other: Color) -> Generator[int]:
@@ -74,7 +76,9 @@ class Color(discord.Color):
 
     @classmethod
     def from_random(cls: type[t.Self]) -> t.Self:
-        return cls.from_rgb(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        return cls.from_rgb(
+            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+        )
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:
@@ -119,7 +123,9 @@ def get_foreground_color(seed: int, background: Color) -> Color:
     return cycle_similar_color(background, color_to_change=foreground)
 
 
-def color_matrix(matrix: Matrix[int], foreground: Color, background: Color) -> Matrix[Color]:
+def color_matrix(
+    matrix: Matrix[int], foreground: Color, background: Color
+) -> Matrix[Color]:
     width, height = len(matrix[0]), len(matrix)
     colored: Matrix[Color] = [[foreground] * width for _ in range(height)]
     for i in range(height):
@@ -201,7 +207,9 @@ async def get_identicon(
 
 
 @app_commands.context_menu(name="Identicon")
-async def identicon_context_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
+async def identicon_context_menu(
+    itx: Interaction, user: discord.Member | discord.User
+) -> None:
     embed, file = await embed_identicon(user.id, user.name, None, WHITE)
     await itx.response.send_message(embed=embed, file=file, ephemeral=True)
 

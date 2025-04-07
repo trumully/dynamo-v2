@@ -28,7 +28,9 @@ from .utils.logs import with_logging
 log = logging.getLogger(__name__)
 
 
-def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]) -> None:
+def _run_bot(
+    loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]
+) -> None:
     db_path = str(platformdir.user_data_path / "dynamo.db")
 
     loop.set_task_factory(asyncio.eager_task_factory)
@@ -46,7 +48,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     read_conn = apsw.Connection(db_path, flags=apsw.SQLITE_OPEN_READONLY)
     rw_conn = apsw.Connection(db_path)
 
-    client = Dynamo(intents=intents, conn=rw_conn, read_conn=read_conn, initial_exts=initial_exts)
+    client = Dynamo(
+        intents=intents, conn=rw_conn, read_conn=read_conn, initial_exts=initial_exts
+    )
 
     async def bot_entry_point() -> None:
         try:
@@ -81,7 +85,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
             _close_task = loop.create_task(client.close())
         loop.run_until_complete(asyncio.sleep(0.001))
 
-        tasks: set[asyncio.Task[t.Any]] = {t for t in asyncio.all_tasks(loop) if not t.done()}
+        tasks: set[asyncio.Task[t.Any]] = {
+            t for t in asyncio.all_tasks(loop) if not t.done()
+        }
 
         async def limited_finalization():
             _done, pending = await asyncio.wait(tasks, timeout=0.1)

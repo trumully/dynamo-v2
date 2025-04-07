@@ -1,5 +1,6 @@
 version = 1
-requires-python = ">=3.13"
+revision = 1
+requires-python = ">=3.13, <4"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -183,7 +184,7 @@ speed = [
 [[package]]
 name = "dynaconf"
 version = "3.3.0.dev0"
-source = { git = "https://github.com/dynaconf/dynaconf#f942dc1047d86c78e6aead018f19b333f462bb5c" }
+source = { git = "https://github.com/dynaconf/dynaconf#acec339d742a510b442720db8f5e9e3bc22a142d" }
 
 [[package]]
 name = "dynamo"
@@ -245,8 +246,8 @@ wheels = [
 
 [[package]]
 name = "mikeshardmind-async-utils"
-version = "2025.3.30b0"
-source = { git = "https://github.com/mikeshardmind/async-utils#40562a0a2cf740d43ca12f830e02b375e23c604b" }
+version = "2025.4.6b0"
+source = { git = "https://github.com/mikeshardmind/async-utils#f93cc4626ba21ca6eb3755bdf9c14b0a21b997f5" }
 
 [[package]]
 name = "msgspec"
@@ -397,6 +398,7 @@ dependencies = [
     { name = "multidict" },
     { name = "propcache" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/fc/4d/8a8f57caccce49573e567744926f88c6ab3ca0b47a257806d1cf88584c5f/yarl-1.19.0.tar.gz", hash = "sha256:01e02bb80ae0dbed44273c304095295106e1d9470460e773268a27d11e594892", size = 184396 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/a7/222144efa2f4a47363a5fee27d8a1d24851283b5a7f628890805fe7f7a66/yarl-1.19.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:59281b9ed27bc410e0793833bcbe7fc149739d56ffa071d1e0fe70536a4f7b61", size = 144789 },
     { url = "https://files.pythonhosted.org/packages/72/4f/3ee8de3f94baa33c0716260b0048b1fd5306f104b3efc6e1713693e7063e/yarl-1.19.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:d27a6482ad5e05e8bafd47bf42866f8a1c0c3345abcb48d4511b3c29ecc197dc", size = 96685 },
@@ -415,6 +417,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/ce/f5dc0439320dfe59fadab8cdd24ac324be19cf6ae4736422c7e2a510ddf3/yarl-1.19.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:f408d4b4315e814e5c3668094e33d885f13c7809cbe831cbdc5b1bb8c7a448f4", size = 376552 },
     { url = "https://files.pythonhosted.org/packages/a9/4a/4833a134c76af987eff3ce8cb71e42932234120e6be061eb2555061e8844/yarl-1.19.0-cp313-cp313-win32.whl", hash = "sha256:24e4c367ad69988a2283dd45ea88172561ca24b2326b9781e164eb46eea68345", size = 85878 },
     { url = "https://files.pythonhosted.org/packages/32/e9/59327daab3af8f79221638a8f0d11474d20f6a8fbc41e9da80c5ef69e688/yarl-1.19.0-cp313-cp313-win_amd64.whl", hash = "sha256:0110f91c57ab43d1538dfa92d61c45e33b84df9257bd08fcfcda90cce931cbc9", size = 92448 },
+    { url = "https://files.pythonhosted.org/packages/a4/06/ae25a353e8f032322df6f30d6bb1fc329773ee48e1a80a2196ccb8d1206b/yarl-1.19.0-py3-none-any.whl", hash = "sha256:a727101eb27f66727576630d02985d8a065d09cd0b5fcbe38a5793f71b2a97ef", size = 45990 },
 ]
 
 [[package]]

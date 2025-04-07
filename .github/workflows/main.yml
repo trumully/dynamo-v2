@@ -13,14 +13,15 @@ on:
 jobs:
   check:
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
+
+    name: Types and Linting
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install the latest version of uv
+      - name: Set up UV
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -28,10 +29,15 @@ jobs:
             pyproject.toml
             uv.lock
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node for Pyright
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Check Types and Linting
         run: >
           uv run --frozen check.py
+
+      - name: Verify No CLRF line endings
+        run: >
+          ! $(find . ! -path "./.git/*" -not -type d -exec file "{}" ";" |& grep -q " CRLF ")
