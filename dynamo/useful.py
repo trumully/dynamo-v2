@@ -29,7 +29,9 @@ class ScheduledEventTransformer(DynamoTransformer):
     """
 
     @staticmethod
-    def _get_cached(values: list[discord.ScheduledEvent], value: str, /) -> discord.ScheduledEvent:
+    def _get_cached(
+        values: list[discord.ScheduledEvent], value: str, /
+    ) -> discord.ScheduledEvent:
         return next(
             e
             for e in values
