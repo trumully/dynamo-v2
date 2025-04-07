@@ -1,7 +1,6 @@
 [tool.ruff]
 src = ["dynamo"]
 line-length = 100
-target-version = "py313"
 preview = true
 
 [tool.ruff.format]
@@ -94,7 +93,7 @@ name = "dynamo"
 version = "0.1.0"
 description = "\"A discord bot\""
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "~=3.13"
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: The Unlicense (Unlicense)",
@@ -120,7 +119,6 @@ homepage = "https://github.com/trumully/dynamo-v2"
 [tool.pyright]
 include = ["dynamo"]
 typeCheckingMode = "strict"
-pythonVersion = "3.13"
 pythonPlatform = "All"
 reportCallInDefaultInitializer = "warning"
 reportImportCycles = "error"
