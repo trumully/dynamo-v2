@@ -1,43 +1,40 @@
 <h2 align="center">Dynamo</h2>
+<h4 align="center">My personal Discord bot</h4>
 <p align="center">
 <a href="" rel="noopener"><img src="assets/img/dynamo.png" alt="Dynamo" height="400"></a>
 </p>
 
 ## Set up
 ### Prerequisites 
-```sh
-winget add --id Python.Python.3.13 -e
-winget add --id astral-sh.uv -e
-```
+* Python 3.13
+* uv
 
-### Clone repository
-```sh
-git clone https://github.com/trumully/dynamo-v2.git
-```
-
-### Setup virtual environment
-You can easily set this up with `uv` but feel free to set it up however you prefer. Requirements are in `pyproject.toml`
+### Setup a venv
+You should use `uv` but anything works really.
 ```sh
 uv sync
 ```
+Requirements specified in `pyproject.toml` / `uv.lock`
 
 ## Using
+### Store bot token
+You should set it in `.secrets.toml` at the root
+```toml
+# .secrets.toml
+token = "your token here"
+```
+Alternatively, you can set the environment variable `DYNAMO_TOKEN`
+
+### Run
+Entry point is `dynamo/cli.py`.
+```sh
+uv run dynamo
+```
+
 ### Check lint/format/typing
 > [!NOTE]
-> This uses Node to run Pyright. I recommend setting up Node with [fnm](https://github.com/Schniz/fnm)
+> This requires `uv` to run and Node for Pyright. I recommend setting up Node with [fnm](https://github.com/Schniz/fnm)
 
 ```sh
 uv run check.py
-```
-
-### Store bot token
-You *can* set the environment variable `DYNAMO_TOKEN` but you *should* set it in `.secrets.toml` at the root:
-```toml
-token = "your token here"
-```
-
-### Run
-Entry point is `dynamo/cli.py`. You can run this directly with Python if you prefer.
-```sh
-uv run dynamo
 ```
