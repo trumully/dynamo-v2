@@ -105,7 +105,7 @@ class Dynamo(discord.AutoShardedClient):
         initial_exts: list[HasExports],
         **kwargs: object,
     ) -> None:
-        intents = intents or discord.Intents.none()
+        intents = discord.Intents.none() if intents is None else intents
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
         self.conn = conn
