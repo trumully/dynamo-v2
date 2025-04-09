@@ -23,6 +23,9 @@ uv sync
 
 ## Using
 ### Check lint/format/typing
+> [!NOTE]
+> This uses Node to run Pyright. I recommend setting up Node with [fnm](https://github.com/Schniz/fnm)
+
 ```sh
 uv run check.py
 ```

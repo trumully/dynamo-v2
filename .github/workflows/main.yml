@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node for Pyright
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .node-version
 
       - name: Check Types and Linting
         run: >
