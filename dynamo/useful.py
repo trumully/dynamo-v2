@@ -101,14 +101,14 @@ class ScheduledEventTransformer(DynamoTransformer):
 )
 @app_commands.guild_only()
 @app_commands.describe(
-    event="The name, URL, or Id of the event"
-    "Name is case-insensitive. For specifity, use its URL or Id",
+    event="The name, URL, or ID of the event"
+    "Name is case-insensitive. For specifity, use its URL or ID",
     ephemeral="Send privately",
 )
 async def interested(
     itx: Interaction,
     event: Transform[discord.ScheduledEvent, ScheduledEventTransformer],
-    ephemeral: bool = False,
+    ephemeral: bool = True,
 ) -> None:
     users = await process_async_iterable(event.users())
     users_interested = " ".join(u.mention for u in users) or "No users interested"
@@ -123,7 +123,7 @@ async def interested_error(itx: Interaction, error: app_commands.AppCommandError
     msg = "An unexpected error ocurred. Please try again."
     log = itx.client.error
     if isinstance(error, app_commands.TransformerError):
-        msg = "That's not a valid event in this guild. Did you enter the correct name or id?"
+        msg = "That's not a valid event in this guild. Did you enter the correct name or ID?"
     elif isinstance(error, app_commands.NoPrivateMessage):
         msg = "This command cannot be used outside of a guild context."
     else:
