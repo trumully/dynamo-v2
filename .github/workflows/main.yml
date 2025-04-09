@@ -12,7 +12,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     name: Types and Linting
     steps:
@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up UV
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@9ad030384d649dcdad575ef964e02a9fdce218ab  # ~v5.4.1
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -30,7 +30,7 @@ jobs:
             uv.lock
 
       - name: Set up Node for Pyright
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # ~v4.3.0
         with:
           node-version-file: .node-version
 
