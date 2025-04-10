@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from functools import partial
 
@@ -13,6 +14,8 @@ from .utils.logic import process_async_iterable
 from .utils.transformers import DynamoTransformer
 
 _guild_events_cache: LRU[int, list[discord.ScheduledEvent]] = LRU(128)
+
+log = logging.getLogger(__name__)
 
 
 class ScheduledEventTransformer(DynamoTransformer):
@@ -45,16 +48,15 @@ class ScheduledEventTransformer(DynamoTransformer):
             msg = "Tried transforming event outside of guild"
             raise app_commands.NoPrivateMessage(msg) from None
 
-        client = itx.client
         guild: discord.Guild | None = itx.guild
         events = _guild_events_cache.setdefault(guild.id, [])
         result: discord.ScheduledEvent | None = None
         try:
             result = ScheduledEventTransformer._get_cached(events, value)
         except StopIteration:
-            client.debug("useful", "%s is not yet cached for guild %d", value, guild.id)
+            log.debug("%s is not yet cached for guild %d", value, guild.id)
         else:
-            client.debug("useful", "%s is already cached for guild %d.", value, guild.id)
+            log.debug("%s is already cached for guild %d.", value, guild.id)
             return result
 
         match = DynamoTransformer._get_id_match(value)
@@ -121,14 +123,14 @@ async def interested(
 async def interested_error(itx: Interaction, error: app_commands.AppCommandError) -> None:
     send = partial(itx.response.send_message, ephemeral=True)
     msg = "An unexpected error ocurred. Please try again."
-    log = itx.client.error
+    log_ = log.warning
     if isinstance(error, app_commands.TransformerError):
         msg = "That's not a valid event in this guild. Did you enter the correct name or ID?"
     elif isinstance(error, app_commands.NoPrivateMessage):
         msg = "This command cannot be used outside of a guild context."
     else:
-        log = itx.client.bug
-    log("useful.interested", msg)
+        log_ = log.error
+    log_("useful.interested", msg)
     await send(content=msg)
 
 

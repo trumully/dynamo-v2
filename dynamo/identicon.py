@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 import os
 import random
@@ -28,8 +27,6 @@ MAX_EUCLEDIAN = 441.67
 SIMILARITY_CUTOFF = 0.3
 
 EPSILON = 1e-6
-
-log = logging.getLogger(__name__)
 
 
 class Color(discord.Color):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from hashlib import blake2b
-from logging import DEBUG, ERROR, INFO, getLogger
 
 import apsw
 import discord
@@ -32,6 +32,9 @@ class HasExports(t.Protocol):
 
 class PreemptiveBlocked(Exception):
     pass
+
+
+log = logging.getLogger(__name__)
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
@@ -113,7 +116,6 @@ class Dynamo(discord.AutoShardedClient):
         self.block_cache: LRU[int, bool] = LRU(512)
         self._last_interact_waterfall = Waterfall(10, 100, self.update_last_seen)
         self.initial_exts = initial_exts
-        self.logger = getLogger("dynamo")
 
     async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
         with self.conn:
@@ -150,6 +152,19 @@ class Dynamo(discord.AutoShardedClient):
         self.block_cache[user_id] = b
         return b
 
+    async def set_blocked(self, user_id: int, blocked: bool) -> None:
+        self.block_cache[user_id] = blocked
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO discord_users (user_id, is_blocked)
+                VALUES (?, ?)
+                ON CONFLICT (user_id)
+                DO UPDATE SET is_blocked=excluded.is_blocked
+                """,
+                (user_id, blocked),
+            )
+
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
@@ -160,7 +175,7 @@ class Dynamo(discord.AutoShardedClient):
         path = platformdir.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)
         tree_hash = await self.tree.get_hash()
-        self.info("discord.setup_hook", "Command tree hash digest: %s", tree_hash.hex())
+        log.info("Command tree hash digest: %s", tree_hash.hex())
         with path.open("r+b") as fp:
             data = fp.read()
             if data != tree_hash:
@@ -175,28 +190,3 @@ class Dynamo(discord.AutoShardedClient):
     async def close(self) -> None:
         await super().close()
         await self._last_interact_waterfall.stop()
-
-    def _log(
-        self,
-        name: str,
-        level: int,
-        message: str,
-        *args: object,
-        exc_info: bool = False,
-    ) -> None:
-        self.logger.name = name
-        self.logger.log(level, message, *args, exc_info=exc_info)
-
-    def debug(self, name: str, message: str, *args: object) -> None:
-        self._log(name, DEBUG, message, *args)
-
-    def info(self, name: str, message: str, *args: object) -> None:
-        self._log(name, INFO, message, *args)
-
-    def bug(self, name: str, message: str, *args: object) -> None:
-        """Log when the **code** is at fault."""
-        self._log(name, ERROR, f"BUG: {message}", *args, exc_info=True)
-
-    def error(self, name: str, message: str, *args: object) -> None:
-        """Log when the **user** is at fault."""
-        self._log(name, ERROR, message, *args, exc_info=True)
