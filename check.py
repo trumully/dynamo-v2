@@ -8,7 +8,6 @@
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
-from functools import partial
 from pathlib import Path
 from subprocess import Popen
 
@@ -43,18 +42,16 @@ def run(*command: str | Path) -> None:
         raise RuntimeError(msg) from None
 
 
-uv_run = partial(run, "uv", "run", "--active")
-
-
 def main() -> None:
+    os.unsetenv("VIRTUAL_ENV")  # Prevents warnings when running uv
     npx = "npx.cmd" if os.name == "nt" else "npx"
 
     if _IS_GITHUB_ACTIONS:
         os.environ["RUFF_OUTPUT_FORMAT"] = "github"
 
-    uv_run("ruff", "check")
-    uv_run("ruff", "format", "--diff")
-    uv_run(npx, "--yes", "pyright@1.1.398")
+    run("uv", "run", "ruff", "check")
+    run("uv", "run", "ruff", "format", "--diff")
+    run(npx, "--yes", "pyright@1.1.398")
 
 
 if __name__ == "__main__":
