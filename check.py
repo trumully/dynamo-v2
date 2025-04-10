@@ -6,6 +6,7 @@
 # ///
 
 import os
+import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -36,10 +37,9 @@ def run(*command: str | Path) -> None:
         except KeyboardInterrupt:
             process.terminate()
             process.wait()
-
-    if process.returncode != 0:
-        msg = f"{command} failed with exit code {process.returncode}"
-        raise RuntimeError(msg) from None
+        finally:
+            if process.returncode != 0:
+                sys.exit(process.returncode)
 
 
 def main() -> None:
@@ -51,7 +51,7 @@ def main() -> None:
 
     run("uv", "run", "ruff", "check")
     run("uv", "run", "ruff", "format", "--diff")
-    run("uv", "run", npx, "--yes", "pyright@1.1.398")
+    run("uv", "run", npx, "--yes", "pyright@1.1.399")
 
 
 if __name__ == "__main__":
