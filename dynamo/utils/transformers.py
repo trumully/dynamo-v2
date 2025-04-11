@@ -12,6 +12,9 @@ from discord.app_commands import Transformer
 from dynamo import _typings as t
 from dynamo.bot import Interaction
 
+if t.TYPE_CHECKING:
+    from dynamo.bot import Dynamo  # noqa: F401
+
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
 log = logging.getLogger(__name__)
@@ -38,12 +41,7 @@ def _get_cached_event(
     )
 
 
-class DynamoTransformer(Transformer):
-    async def transform(self, itx: Interaction, value: t.Any, /) -> t.Any:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: PLR6301
-        return NotImplemented
-
-
-class ScheduledEventTransformer(DynamoTransformer):
+class ScheduledEventTransformer(Transformer["Dynamo"]):
     """discord.ScheduledEvent transformer adapted from the discord.py converter.
 
     Lookups are done for the local guild if available. Otherwise, for a DM context,
