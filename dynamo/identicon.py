@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 import math
-import os
-import random
-from collections.abc import Generator, Sequence
+import time
+from collections.abc import Generator
+from hashlib import md5
 from io import BytesIO
 
 import discord
@@ -17,8 +18,6 @@ from .utils.wrappers import executor_function
 
 IDENTICON_SIZE = 500
 
-type Matrix[T] = Sequence[Sequence[T]]
-
 
 MAX_PERCEIVED = 764.83
 MAX_EUCLEDIAN = 441.67
@@ -27,6 +26,20 @@ MAX_EUCLEDIAN = 441.67
 SIMILARITY_CUTOFF = 0.3
 
 EPSILON = 1e-6
+
+
+log = logging.getLogger(__name__)
+
+
+# a Unicode string is a sequence of code points, which are numbers from 0 through 0x10FFFF (1,114,111 decimal).
+# https://docs.python.org/3/howto/unicode.html#encodings
+TO_SCRUNCH = "".join(c for c in map(chr, range(1_114_111)) if not c.isalnum())
+SCRUNCH_TABLE = str.maketrans("", "", TO_SCRUNCH)
+
+
+class EmbedWithFile(t.TypedDict, total=False):
+    embed: discord.Embed
+    file: discord.File
 
 
 class Color(discord.Color):
@@ -72,10 +85,23 @@ class Color(discord.Color):
         return t.cast(t.Self, Color.from_str(value))
 
     @classmethod
-    def from_random(cls: type[t.Self]) -> t.Self:
-        return cls.from_rgb(
-            random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-        )
+    def from_hsl(cls: type[t.Self], h: float, s: float, l: float) -> t.Self:  # noqa: E741
+        # Adapted from https://stackoverflow.com/a/44134328
+        # and https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative
+        l /= 100  # noqa: E741
+        a = s * min(l, 1 - l) / 100
+
+        # n = offset for rgb components (r=0, g=8, b=4)
+        def f(n: int):
+            # hue shift
+            # k is split into 12 different angles of 30deg intervals.
+            # 0,4,8 are unique and evenly spaced angles for k.
+            k = (n + h / 30) % 12
+
+            color = l - a * max(min((k - 3, 9 - k, 1)), -1)
+            return f"{round(255 * color):x}"
+
+        return t.cast(t.Self, cls.from_str(f"#{f(0)}{f(8)}{f(4)}"))
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:
@@ -90,92 +116,72 @@ WHITE = Color.white()
 BLACK = Color.black()
 
 
-def make_matrix(seed: int, size: int = 4) -> Matrix[int]:
-    random.seed(seed)
-    width, height = size, size * 2
-    result = [([0] * width) for _ in range(height)]
-    for i in range(height):
-        for j in range(width):
-            is_colored = round(random.random(), 2)
-            if is_colored <= 0.42:
-                result[i][j] = 1
+def generate_pattern(digest: str) -> list[list[bool]]:
+    col3 = [int(x, 16) % 2 == 0 for x in digest[:5]]
+    col2 = [int(x, 16) % 2 == 0 for x in digest[5:10]]
+    col1 = [int(x, 16) % 2 == 0 for x in digest[10:15]]
 
-    # flip
-    for i in range(height):
-        result[i].extend(result[i][::-1])
-
-    return result
+    return [[col1[i], col2[i], col3[i], col2[i], col1[i]] for i in range(5)]
 
 
-def cycle_similar_color(relative_color: Color, *, color_to_change: Color) -> Color:
-    """Get a different color that is not similar to the given color."""
-    while color_to_change.is_similar_to(relative_color):
-        color_to_change = Color.from_random()
-    return color_to_change
+def generate_color(digest: str) -> Color:
+    """Calculated from the last 7 nibbles of a hash HHH|SS|LL.
 
+    HHH (0..4095) remapped to a value between (0..360) = hue
+    SS (0..255) remapped to a value between (0..20) = saturation, max 65
+    LL (0..255) remapped to a value between (0..20) = luminance, max 75
+    """
+    color = digest[-7:]
 
-def get_foreground_color(seed: int, background: Color) -> Color:
-    random.seed(seed)
-    foreground = Color.from_random()
-    return cycle_similar_color(background, color_to_change=foreground)
+    hue = int(color[:3], 16) * 0.0879120879120879
+    saturation = 65 - (int(color[3:5], 16) * 0.0784313725490196)
+    luminance = 75 - (int(color[5:7], 16) * 0.0784313725490196)
 
-
-def color_matrix(
-    matrix: Matrix[int], foreground: Color, background: Color
-) -> Matrix[Color]:
-    width, height = len(matrix[0]), len(matrix)
-    colored: Matrix[Color] = [[foreground] * width for _ in range(height)]
-    for i in range(height):
-        for j in range(width):
-            colored[i][j] = foreground if matrix[i][j] == 1 else background
-
-    return colored
+    return Color.from_hsl(hue, saturation, luminance)
 
 
 @executor_function
-def identicon_as_bytes(matrix: Matrix[Color]) -> bytes:
-    buffer = BytesIO()
+def identicon_to_img(digest: str, *, foreground: Color, background: Color) -> bytes:
+    to_fill = generate_pattern(digest)
 
-    matrix_width, matrix_height = len(matrix[0]), len(matrix)
+    img = Image.new("RGB", (5, 5), background.to_rgb())
+    for i in range(5):
+        for j in range(5):
+            if to_fill[j][i]:
+                img.putpixel((i, j), foreground.to_rgb())
 
-    image: Image.Image = Image.new("RGB", (matrix_width, matrix_height), 255)
-    for i in range(matrix_height):
-        for j in range(matrix_width):
-            r, g, b = matrix[i][j].to_rgb()
-            image.putpixel((i, j), (r, g, b))
+    img = img.resize((350, 350), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
+    result = Image.new("RGB", (420, 420), background.to_rgb())
+    result.paste(img, (35, 35))
 
-    image = image.resize((IDENTICON_SIZE, IDENTICON_SIZE), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
-    image = image.rotate(90, Image.Resampling.NEAREST)
-    image.save(buffer, format="png")
+    buff = BytesIO()
+    result.save(buff, format="png")
 
-    buffer.seek(0)
-    return buffer.getvalue()
+    buff.seek(0)
+    return buff.getvalue()
 
 
 @lrutaskcache()
 async def create_identicon(
-    seed: int, foreground: Color | None, background: Color
-) -> tuple[Color, bytes]:
-    matrix = make_matrix(seed)
+    value: str, *, foreground: Color | None, background: Color
+) -> tuple[bytes, Color]:
+    digest = md5(value.encode(), usedforsecurity=False).hexdigest()
+
     if foreground is None:
-        foreground = get_foreground_color(seed, background)
-    colors = color_matrix(matrix, foreground, background)
-    idt_bytes = await identicon_as_bytes(colors)
-    return foreground, idt_bytes
+        foreground = generate_color(digest)
+
+    img = await identicon_to_img(digest, foreground=foreground, background=background)
+
+    return img, foreground
 
 
-async def embed_identicon(
-    seed: int,
-    title: str,
-    foreground: Color | None,
-    background: Color,
-) -> tuple[discord.Embed, discord.File]:
-    foreground, idt_bytes = await create_identicon(seed, foreground, background)
+async def embed_identicon(value: str, *, fg: Color | None, bg: Color) -> EmbedWithFile:
+    img, fg = await create_identicon(value, foreground=fg, background=bg)
 
-    file = discord.File(BytesIO(idt_bytes), filename="identicon.png")
-    embed = discord.Embed(title=title, color=foreground)
-    embed.set_image(url="attachment://identicon.png")
-    return embed, file
+    file = discord.File(BytesIO(img), filename=f"{value}.png")
+    embed = discord.Embed(title=value, color=fg)
+    embed.set_image(url=f"attachment://{value}.png")
+    return {"embed": embed, "file": file}
 
 
 @app_commands.command(name="identicon", description="Generate an identicon from a seed")
@@ -192,23 +198,21 @@ async def get_identicon(
     background: Color = WHITE,
     ephemeral: bool = False,
 ) -> None:
-    try:
-        seed = int(value)  # type: ignore[reportArgumentType]
-    except (ValueError, TypeError):
-        seed_bytes = os.urandom(8) if value is None or not value else value.encode()
-        seed = int.from_bytes(seed_bytes, "big")
-    title = value or str(seed)
+    if value is None:
+        value = str(time.monotonic_ns())
 
-    embed, file = await embed_identicon(seed, title, foreground, background)
-    await itx.response.send_message(embed=embed, file=file, ephemeral=ephemeral)
+    value = value.translate(SCRUNCH_TABLE)
+
+    result = await embed_identicon(value, fg=foreground, bg=background)
+    await itx.response.send_message(**result, ephemeral=ephemeral)
 
 
 @app_commands.context_menu(name="Identicon")
 async def identicon_context_menu(
     itx: Interaction, user: discord.Member | discord.User
 ) -> None:
-    embed, file = await embed_identicon(user.id, user.name, None, WHITE)
-    await itx.response.send_message(embed=embed, file=file, ephemeral=True)
+    result = await embed_identicon(str(user.id), fg=None, bg=WHITE)
+    await itx.response.send_message(**result, ephemeral=True)
 
 
 exports = BotExports(commands=[get_identicon, identicon_context_menu])
