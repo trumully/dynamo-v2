@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         Never,
         Protocol,
         Self,
+        TypedDict,
         TypeVar,
         cast,
         override,
@@ -35,6 +36,7 @@ else:
             "Never",
             "Self",
             "NamedTuple",
+            "TypedDict",
             "Protocol",
             "override",
             "TypeVar",
@@ -59,6 +61,7 @@ __all__ = (
     "Protocol",
     "Self",
     "TypeVar",
+    "TypedDict",
     "cast",
     "override",
 )
