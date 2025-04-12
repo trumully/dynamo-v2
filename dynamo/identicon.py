@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import time
-from collections.abc import Generator
-from hashlib import md5
+from collections.abc import Callable, Generator, Mapping
+from enum import StrEnum, auto
+from functools import partial
 from io import BytesIO
 
 import discord
 from async_utils.task_cache import lrutaskcache
 from discord import app_commands
+from discord.app_commands import Transform
 from PIL import Image
 
 from . import _typings as t
 from .bot import BotExports, Interaction
+from .utils.transformers import CleanString
 from .utils.wrappers import executor_function
 
 IDENTICON_SIZE = 500
@@ -31,10 +35,29 @@ EPSILON = 1e-6
 log = logging.getLogger(__name__)
 
 
-# a Unicode string is a sequence of code points, which are numbers from 0 through 0x10FFFF (1,114,111 decimal).
-# https://docs.python.org/3/howto/unicode.html#encodings
-TO_SCRUNCH = "".join(c for c in map(chr, range(1_114_111)) if not c.isalnum())
-SCRUNCH_TABLE = str.maketrans("", "", TO_SCRUNCH)
+hash_kwargs = {"usedforsecurity": False}
+
+
+class Algorithm(StrEnum):
+    MD5 = auto()
+    SHA1 = auto()
+    SHA256 = auto()
+    SHA512 = auto()
+
+
+class Hash(t.Protocol):
+    def digest(self) -> bytes: ...
+    def hexdigest(self) -> str: ...
+
+
+# fmt: off
+_hash_algo_map: Mapping[Algorithm, Callable[[bytes], Hash]] = {
+    Algorithm.MD5:      partial(hashlib.md5, **hash_kwargs),
+    Algorithm.SHA1:     partial(hashlib.sha1, **hash_kwargs),
+    Algorithm.SHA256:   partial(hashlib.sha256, **hash_kwargs),
+    Algorithm.SHA512:   partial(hashlib.sha512, **hash_kwargs),
+}
+# fmt: on
 
 
 class EmbedWithFile(t.TypedDict, total=False):
@@ -163,9 +186,13 @@ def identicon_to_img(digest: str, *, foreground: Color, background: Color) -> by
 
 @lrutaskcache()
 async def create_identicon(
-    value: str, *, foreground: Color | None, background: Color
+    value: str,
+    *,
+    algorithm: Algorithm,
+    foreground: Color | None,
+    background: Color,
 ) -> tuple[bytes, Color]:
-    digest = md5(value.encode(), usedforsecurity=False).hexdigest()
+    digest = _hash_algo_map[algorithm](value.encode()).hexdigest()
 
     if foreground is None:
         foreground = generate_color(digest)
@@ -175,12 +202,23 @@ async def create_identicon(
     return img, foreground
 
 
-async def embed_identicon(value: str, *, fg: Color | None, bg: Color) -> EmbedWithFile:
-    img, fg = await create_identicon(value, foreground=fg, background=bg)
+async def embed_identicon(
+    value: str,
+    *,
+    algorithm: Algorithm,
+    foreground: Color | None,
+    background: Color,
+) -> EmbedWithFile:
+    img, foreground = await create_identicon(
+        value, algorithm=algorithm, foreground=foreground, background=background
+    )
 
-    file = discord.File(BytesIO(img), filename=f"{value}.png")
-    embed = discord.Embed(title=value, color=fg)
-    embed.set_image(url=f"attachment://{value}.png")
+    file = discord.File(BytesIO(img), filename="identicon.png")
+    description = f"Generated with **{algorithm.upper()}**"
+    embed = discord.Embed(title=value, color=foreground, description=description)
+    embed.add_field(name="Primary", value=str(foreground))
+    embed.add_field(name="Background", value=str(background))
+    embed.set_image(url="attachment://identicon.png")
     return {"embed": embed, "file": file}
 
 
@@ -189,21 +227,26 @@ async def embed_identicon(value: str, *, fg: Color | None, bg: Color) -> EmbedWi
     value="Input used to generate icon",
     foreground="RGB or hexcode color for the foreground",
     background="RGB or hexcode color for the background",
+    algorithm="Algorithm used, MD5 by default",
     ephemeral="Send privately",
 )
 async def get_identicon(
     itx: Interaction,
-    value: str | None = None,
+    value: Transform[str, CleanString] | None = None,
     foreground: Color | None = None,
     background: Color = WHITE,
+    algorithm: Algorithm = Algorithm.MD5,
     ephemeral: bool = False,
 ) -> None:
     if value is None:
         value = str(time.monotonic_ns())
 
-    value = value.translate(SCRUNCH_TABLE)
-
-    result = await embed_identicon(value, fg=foreground, bg=background)
+    result = await embed_identicon(
+        value,
+        algorithm=algorithm,
+        foreground=foreground,
+        background=background,
+    )
     await itx.response.send_message(**result, ephemeral=ephemeral)
 
 
@@ -211,7 +254,12 @@ async def get_identicon(
 async def identicon_context_menu(
     itx: Interaction, user: discord.Member | discord.User
 ) -> None:
-    result = await embed_identicon(str(user.id), fg=None, bg=WHITE)
+    result = await embed_identicon(
+        str(user.id),
+        algorithm=Algorithm.MD5,
+        foreground=None,
+        background=WHITE,
+    )
     await itx.response.send_message(**result, ephemeral=True)
 
 
