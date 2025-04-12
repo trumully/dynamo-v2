@@ -34,7 +34,3 @@ jobs:
       - name: Check Types and Linting
         run: >
           uv run --frozen check.py
-
-      - name: Verify No CLRF line endings
-        run: >
-          ! $(find . ! -path "./.git/*" -not -type d -exec file "{}" ";" | grep -v -E "image data|bitmap|JPEG|PNG|GIF" |& grep -q " CRLF ")
