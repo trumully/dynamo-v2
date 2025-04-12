@@ -20,9 +20,6 @@ from .bot import BotExports, Interaction
 from .utils.transformers import CleanString
 from .utils.wrappers import executor_function
 
-IDENTICON_SIZE = 500
-
-
 MAX_PERCEIVED = 764.83
 MAX_EUCLEDIAN = 441.67
 
@@ -45,13 +42,13 @@ class Algorithm(StrEnum):
     SHA512 = auto()
 
 
-class Hash(t.Protocol):
+class _Hash(t.Protocol):
     def digest(self) -> bytes: ...
     def hexdigest(self) -> str: ...
 
 
 # fmt: off
-_hash_algo_map: Mapping[Algorithm, Callable[[bytes], Hash]] = {
+_HASH_ALGO_MAP: Mapping[Algorithm, Callable[[bytes], _Hash]] = {
     Algorithm.MD5:      partial(hashlib.md5, **hash_kwargs),
     Algorithm.SHA1:     partial(hashlib.sha1, **hash_kwargs),
     Algorithm.SHA256:   partial(hashlib.sha256, **hash_kwargs),
@@ -108,27 +105,27 @@ class Color(discord.Color):
         return t.cast(t.Self, Color.from_str(value))
 
     @classmethod
-    def from_hsl(cls: type[t.Self], h: float, s: float, l: float) -> t.Self:  # noqa: E741
+    def from_hsl(cls: type[t.Self], hue: float, sat: float, lum: float) -> t.Self:
         # Adapted from https://stackoverflow.com/a/44134328
         # and https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative
-        l /= 100  # noqa: E741
-        a = s * min(l, 1 - l) / 100
+        lum /= 100
+        a = sat * min(lum, 1 - lum) / 100
 
         # n = offset for rgb components (r=0, g=8, b=4)
         def f(n: int):
             # hue shift
             # k is split into 12 different angles of 30deg intervals.
             # 0,4,8 are unique and evenly spaced angles for k.
-            k = (n + h / 30) % 12
+            k = (n + hue / 30) % 12
 
-            color = l - a * max(min((k - 3, 9 - k, 1)), -1)
+            color = lum - a * max(min((k - 3, 9 - k, 1)), -1)
             return f"{round(255 * color):x}"
 
         return t.cast(t.Self, cls.from_str(f"#{f(0)}{f(8)}{f(4)}"))
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:
-        return cls(0xFFFFFF)
+        return cls(0xF0F0F0)
 
     @classmethod
     def black(cls: type[t.Self]) -> t.Self:
@@ -147,6 +144,11 @@ def generate_pattern(digest: str) -> list[list[bool]]:
     return [[col1[i], col2[i], col3[i], col2[i], col1[i]] for i in range(5)]
 
 
+def remap(value: str, v_min: int, v_max: int, d_min: int, d_max: int) -> float:
+    v = int(value, 16)
+    return ((v - v_min) * (d_max - d_min)) / ((v_max - v_min) + d_min)
+
+
 def generate_color(digest: str) -> Color:
     """Calculated from the last 7 nibbles of a hash HHH|SS|LL.
 
@@ -156,11 +158,10 @@ def generate_color(digest: str) -> Color:
     """
     color = digest[-7:]
 
-    hue = int(color[:3], 16) * 0.0879120879120879
-    saturation = 65 - (int(color[3:5], 16) * 0.0784313725490196)
-    luminance = 75 - (int(color[5:7], 16) * 0.0784313725490196)
-
-    return Color.from_hsl(hue, saturation, luminance)
+    hue = remap(color[:3], 0, 4095, 0, 360)
+    sat = remap(color[3:5], 0, 255, 0, 20)
+    lum = remap(color[5:7], 0, 255, 0, 20)
+    return Color.from_hsl(hue, 65.0 - sat, 75.0 - lum)
 
 
 @executor_function
@@ -192,7 +193,7 @@ async def create_identicon(
     foreground: Color | None,
     background: Color,
 ) -> tuple[bytes, Color]:
-    digest = _hash_algo_map[algorithm](value.encode()).hexdigest()
+    digest = _HASH_ALGO_MAP[algorithm](value.encode()).hexdigest()
 
     if foreground is None:
         foreground = generate_color(digest)
