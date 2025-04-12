@@ -106,3 +106,12 @@ class ScheduledEventTransformer(Transformer["Dynamo"]):
     @property
     def type(self) -> AppCommandOptionType:
         return AppCommandOptionType.string
+
+
+class CleanString(Transformer["Dynamo"]):
+    async def transform(self, itx: Interaction, value: str, /) -> str:  # noqa: PLR6301
+        return "".join(c for c in value if c.isalnum())
+
+    @property
+    def type(self) -> AppCommandOptionType:
+        return AppCommandOptionType.string
