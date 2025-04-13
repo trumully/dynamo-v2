@@ -19,12 +19,12 @@ class SupportsWrite(t.Protocol[_T_contra]):
     def write(self, s: _T_contra, /) -> object: ...
 
 
-class SupportsWriteAndisatty(t.Protocol[_T_contra]):
+class SupportsWriteAndIsTTY(t.Protocol[_T_contra]):
     def write(self, s: _T_contra, /) -> object: ...
     def isatty(self) -> bool: ...
 
 
-type Stream[T] = SupportsWrite[T] | SupportsWriteAndisatty[T]
+type Stream[T] = SupportsWrite[T] | SupportsWriteAndIsTTY[T]
 
 
 class KnownWarningFilter(logging.Filter):
@@ -33,7 +33,7 @@ class KnownWarningFilter(logging.Filter):
         "PyNaCl is not installed, voice will NOT be supported",
     )
 
-    def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
+    def filter(self, record: logging.LogRecord) -> bool:
         return record.msg not in self.known_messages
 
 
@@ -73,17 +73,16 @@ class AnsiTermFormatter(logging.Formatter):
 
 
 def use_color_formatting(stream: Stream[str]) -> bool:
-    is_a_tty: bool = False
+    is_a_tty = False
 
     if hasattr(stream, "isatty"):
-        is_a_tty = t.cast("SupportsWriteAndisatty[str]", stream).isatty()
+        is_a_tty = t.cast("SupportsWriteAndIsTTY[str]", stream).isatty()
 
     if os.environ.get("TERM_PROGRAM") == "vscode":
         return is_a_tty
 
-    if sys.platform == "win32":
-        if "WT_SESSION" not in os.environ:
-            return False
+    if sys.platform == "win32" and "WT_SESSION" not in os.environ:
+        return False
 
     return is_a_tty
 
@@ -101,10 +100,8 @@ def with_logging() -> Generator[None]:
         log_loc, maxBytes=2_000_000, backupCount=5
     )
 
-    if use_color_formatting(sys.stderr):
-        stream_h.setFormatter(AnsiTermFormatter())
-    else:
-        stream_h.setFormatter(FMT)
+    stream_fmt = AnsiTermFormatter() if use_color_formatting(sys.stderr) else FMT
+    stream_h.setFormatter(stream_fmt)
 
     rotating_file_handler.setFormatter(FMT)
 

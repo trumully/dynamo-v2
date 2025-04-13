@@ -20,7 +20,6 @@ import apsw.bestpractice
 import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
-from . import _typings as t
 from .bot import HasExports
 from .utils.files import get_token, platformdir
 from .utils.logs import with_logging
@@ -83,30 +82,12 @@ def _run_bot(
         if not client.is_closed():
             # give the client a brief opportunity to close
             _close_task = loop.create_task(client.close())
-        loop.run_until_complete(asyncio.sleep(0.001))
 
-        tasks: set[asyncio.Task[t.Any]] = {
-            t for t in asyncio.all_tasks(loop) if not t.done()
-        }
-
-        async def limited_finalization():
-            _done, pending = await asyncio.wait(tasks, timeout=0.1)
-            if not pending:
-                log.debug("Clean shutdown accomplished.")
-                return
-
-            for task in tasks:
-                task.cancel()
-
-            _done, pending = await asyncio.wait(tasks, timeout=0.1)
-
-            for task in pending:
-                name = task.get_name()
-                coro = task.get_coro()
-                log.warning("Task %s wrapping coro %r did not exit properly", name, coro)
-
-        if tasks:
-            loop.run_until_complete(limited_finalization())
+        loop.run_until_complete(asyncio.sleep(0))
+        tasks = {t for t in asyncio.all_tasks(loop) if not t.done()}
+        for t in tasks:
+            t.cancel()
+        loop.run_until_complete(asyncio.sleep(0))
         loop.run_until_complete(loop.shutdown_asyncgens())
         loop.run_until_complete(loop.shutdown_default_executor())
 
