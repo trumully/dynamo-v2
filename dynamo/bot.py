@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 from collections.abc import Sequence
 from hashlib import blake2b
@@ -28,10 +29,6 @@ class BotExports(t.NamedTuple):
 
 class HasExports(t.Protocol):
     exports: BotExports
-
-
-class PreemptiveBlocked(Exception):
-    pass
 
 
 log = logging.getLogger(__name__)
@@ -68,15 +65,27 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         )
 
     @t.override
-    async def interaction_check(self, interaction: Interaction, /) -> bool:  # noqa: PLR6301
-        if await interaction.client.is_blocked(interaction.user.id):
-            resp = interaction.response
-            if interaction.type is InteractionType.application_command:
+    async def interaction_check(self, itx: Interaction, /) -> bool:  # noqa: PLR6301
+        if await itx.client.is_blocked(itx.user.id):
+            resp = itx.response
+            if itx.type is InteractionType.application_command:
                 await resp.send_message("Blocked", ephemeral=True)
             else:
                 await resp.defer(ephemeral=True)
             return False
         return True
+
+    @t.override
+    async def on_error(
+        self, itx: Interaction, error: app_commands.AppCommandError, /
+    ) -> None:
+        if isinstance(error, app_commands.CommandOnCooldown):
+            fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
+            rel_time = discord.utils.format_dt(fut, style="R")
+            msg = f"You're on cooldown. Try again in {rel_time}"
+            await itx.response.send_message(msg, ephemeral=True)
+        else:
+            await super().on_error(itx, error)
 
     async def _get_payload(
         self, *, guild: Snowflake | None = None

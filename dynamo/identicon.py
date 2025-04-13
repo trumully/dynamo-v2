@@ -224,6 +224,7 @@ async def embed_identicon(
 
 
 @app_commands.command(name="identicon", description="Generate an identicon from a seed")
+@app_commands.checks.cooldown(2, 5.0, key=lambda i: i.user.id)
 @app_commands.describe(
     value="Input used to generate icon",
     foreground="RGB or hexcode color for the foreground",
