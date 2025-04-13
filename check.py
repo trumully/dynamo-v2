@@ -6,7 +6,9 @@
 # ///
 
 import os
+import signal
 import sys
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -28,18 +30,61 @@ def github_action(name: str) -> Generator[None]:
             print("::endgroup::", flush=True)
 
 
-def run(*command: str | Path) -> None:
-    msg = f"Running {' '.join(str(c) for c in command)}"
-    with github_action(msg):
-        process = Popen(command)
+@contextmanager
+def defer_signal(signum: int) -> Generator[None]:
+    original_handler = None
+    defer_handle_args: tuple[object, ...] | None = None
+
+    def defer_handle(*args: object) -> None:
+        nonlocal defer_handle_args
+        defer_handle_args = args
+
+    original_handler = signal.getsignal(signum)
+    if (
+        original_handler is None
+        or not callable(original_handler)
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        yield
+        return
+
+    try:
+        signal.signal(signum, defer_handle)
+        yield
+    finally:
+        signal.signal(signum, original_handler)
+        if defer_handle_args is not None:
+            original_handler(*defer_handle_args)
+
+
+@contextmanager
+def PopenDeferringSIGINTDuringConstruction(
+    *command: str | Path,
+) -> Generator[Popen[bytes]]:
+    with defer_signal(signal.SIGINT):
+        p = Popen(command)
+
+    with p:
+        yield p
+
+
+def run(*command: str | Path, group: str | None = None) -> None:
+    if group is None:
+        group = f"Running {' '.join(str(c) for c in command)}"
+    with github_action(group), PopenDeferringSIGINTDuringConstruction(*command) as p:
         try:
-            process.wait()
+            p.wait()
         except KeyboardInterrupt:
-            process.terminate()
-            process.wait()
+            p.terminate()
+            p.wait()
         finally:
-            if process.returncode != 0:
-                sys.exit(process.returncode)
+            if p.returncode not in {0, 255}:
+                msg = f"{command} failed with exit code {p.returncode}"
+                if _IS_GITHUB_ACTIONS:
+                    print(f"::error::{msg}", flush=True)
+                else:
+                    print(f"\x1b[31m{msg}\x1b[0m")
+                sys.exit(p.returncode)
 
 
 def main() -> None:

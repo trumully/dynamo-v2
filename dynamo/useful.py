@@ -36,7 +36,7 @@ async def interested(
     await itx.response.send_message(content=content, ephemeral=ephemeral)
 
 
-@interested.error  # type: ignore[reportUnknownMemberType]
+@interested.error
 async def interested_error(itx: Interaction, error: app_commands.AppCommandError) -> None:
     send = partial(itx.response.send_message, ephemeral=True)
     msg = "An unexpected error ocurred. Please try again."
