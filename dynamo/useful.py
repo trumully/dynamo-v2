@@ -40,14 +40,10 @@ async def interested(
 async def interested_error(itx: Interaction, error: app_commands.AppCommandError) -> None:
     send = partial(itx.response.send_message, ephemeral=True)
     msg = "An unexpected error ocurred. Please try again."
-    log_ = log.warning
     if isinstance(error, app_commands.TransformerError):
         msg = "That's not a valid event in this guild. Did you enter the correct name or ID?"
     elif isinstance(error, app_commands.NoPrivateMessage):
         msg = "This command cannot be used outside of a guild context."
-    else:
-        log_ = log.error
-    log_("useful.interested", msg)
     await send(content=msg)
 
 
