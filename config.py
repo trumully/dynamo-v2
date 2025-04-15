@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dynaconf.typed import (  # type: ignore[reportMissingTypeStubs]
     Dynaconf,
     Options,
