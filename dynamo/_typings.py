@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         TypedDict,
         TypeVar,
         cast,
+        overload,
         override,
     )
 else:
@@ -41,6 +42,7 @@ else:
             "override",
             "TypeVar",
             "cast",
+            "overload",
         }:
             import typing
 
@@ -63,5 +65,6 @@ __all__ = (
     "TypeVar",
     "TypedDict",
     "cast",
+    "overload",
     "override",
 )
