@@ -15,7 +15,7 @@ from dynamo.bot import BotExports, Interaction
 
 from . import _typings as t
 from .utils.color import Color
-from .utils.files import ROOT
+from .utils.files import ROOT, resolve_path_with_links
 from .utils.format import FONTS, human_join, is_cjk
 from .utils.wrappers import executor_function
 
@@ -31,7 +31,7 @@ class Card(t.TypedDict, total=False):
 WHITE = Color.white().to_rgb()
 GRAY = (64, 64, 64)
 
-LOGO_PATH = ROOT / "assets" / "img" / "spotify.png"
+LOGO_PATH = resolve_path_with_links(ROOT / "assets" / "img" / "spotify.png")
 
 BLUR = ImageFilter.GaussianBlur(radius=30)
 LOGO_SIZE = (48, 48)  # px

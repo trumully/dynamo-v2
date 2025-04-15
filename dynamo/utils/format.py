@@ -6,7 +6,7 @@ from warnings import deprecated
 
 from dynamo import _typings as t
 
-from .files import ROOT
+from .files import ROOT, resolve_path_with_links
 
 FONT_PATH = ROOT / "assets" / "fonts"
 
@@ -63,8 +63,8 @@ class Font(t.NamedTuple):
 
 
 def _get_font(name: str) -> Font:
-    regular = FONT_PATH / f"{name}-Regular.ttf"
-    bold = FONT_PATH / f"{name}-Bold.ttf"
+    regular = resolve_path_with_links(FONT_PATH / f"{name}-Regular.ttf")
+    bold = resolve_path_with_links(FONT_PATH / f"{name}-Bold.ttf")
     return Font(regular, bold)
 
 
