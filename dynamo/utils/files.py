@@ -12,7 +12,7 @@ def resolve_path_with_links(path: Path, folder: bool = False) -> Path:
     try:
         return path.resolve(strict=True)
     except FileNotFoundError:
-        path = resolve_path_with_links(path, folder)
+        path = resolve_path_with_links(path.parent, folder=True) / path.name
         if folder:
             # python default = read/write/traversable (0o777)
             path.mkdir(mode=0o700)
