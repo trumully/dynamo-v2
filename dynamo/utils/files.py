@@ -22,7 +22,7 @@ def resolve_path_with_links(path: Path, folder: bool = False) -> Path:
         return path.resolve(strict=True)
 
 
-ROOT = resolve_path_with_links(Path(__file__).parent.parent)
+ROOT = resolve_path_with_links(Path(__file__).parent.parent.parent)
 
 
 def get_token() -> str:
