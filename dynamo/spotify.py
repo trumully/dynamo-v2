@@ -3,6 +3,7 @@ import logging
 from collections.abc import Generator
 from contextlib import contextmanager
 from enum import StrEnum
+from functools import partial
 from io import BytesIO
 
 import aiohttp
@@ -234,11 +235,10 @@ def draw_static(**card: t.Unpack[Card]) -> None:
 
     draw_progress_bar(draw, activity.end, activity.duration)
 
-    logo = Image.open(LOGO_PATH)
-    logo = logo.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
-    xy = (SIZE[0] - LOGO_SIZE[0] - PADDING, PADDING)
-    image.paste(logo, xy, logo)
-    logo.close()
+    with Image.open(LOGO_PATH) as logo_base:
+        logo = logo_base.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
+        xy = (SIZE[0] - LOGO_SIZE[0] - PADDING, PADDING)
+        image.paste(logo, xy, logo)
 
 
 def _prog_bar_length_relative_to(relative_width: int) -> tuple[int, int, int, int]:
@@ -297,36 +297,42 @@ async def get_spotify(
     itx: Interaction, user: (discord.Member | discord.User) | None = None
 ) -> None:
     send = itx.response.send_message
+    error = partial(send, ephemeral=True)
 
     if itx.guild is None:
-        await send("Please use this command in a guild.", ephemeral=True)
+        await error("Please use this command in a guild.")
         return
 
     user = itx.user if user is None else user
     member = itx.guild.get_member(user.id)
 
     if member is None:
-        await send("That member is not in this guild.", ephemeral=True)
+        await error("That member is not in this guild.")
         return
 
-    spotify_activity: discord.Spotify
+    activity: discord.Spotify
     try:
-        spotify_activity = next(
-            a for a in member.activities if isinstance(a, discord.Spotify)
-        )
+        activity = next(a for a in member.activities if isinstance(a, discord.Spotify))
     except StopIteration:
         prefix = "You are" if user.id == itx.user.id else f"{user!s} is"
-        await send(f"{prefix} not listening to Spotify", ephemeral=True)
+        await error(f"{prefix} not listening to Spotify")
         return
 
     try:
-        embed, file = await make_embed(user.mention, itx.client.session, spotify_activity)
+        embed, file = await make_embed(user.mention, itx.client.session, activity)
         await send(embed=embed, file=file)
     except aiohttp.ClientError:
-        await send(
-            "Something went wrong in fetching images. Not your fault, try again",
-            ephemeral=True,
+        log.warning(
+            "Failed to fetch Spotify album cover for %s",
+            activity.album_cover_url,
+            exc_info=True,
         )
+        await error("Sorry, I couldn't fetch the album cover. Please try again.")
+    except Exception:
+        log.exception(
+            "Failed to generate Spotify card for user %s (%s)", user.display_name, user.id
+        )
+        await error("Sorry, something went wrong while creating the Spotify card image.")
 
 
 exports = BotExports(commands=[get_spotify])
