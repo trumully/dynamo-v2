@@ -33,7 +33,8 @@ class KnownWarningFilter(logging.Filter):
         "PyNaCl is not installed, voice will NOT be supported",
     )
 
-    def filter(self, record: logging.LogRecord) -> bool:
+    @t.override
+    def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.msg not in self.known_messages
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 from collections.abc import Sequence
+from functools import partial
 from hashlib import blake2b
 
 import aiohttp
@@ -67,26 +68,30 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 
     @t.override
     async def interaction_check(self, itx: Interaction, /) -> bool:  # noqa: PLR6301
-        if await itx.client.is_blocked(itx.user.id):
-            resp = itx.response
-            if itx.type is InteractionType.application_command:
-                await resp.send_message("Blocked", ephemeral=True)
-            else:
-                await resp.defer(ephemeral=True)
-            return False
-        return True
+        if not await itx.client.is_blocked(itx.user.id):
+            return True
+        resp = itx.response
+        if itx.type is InteractionType.application_command:
+            await resp.send_message("Blocked", ephemeral=True)
+        else:
+            await resp.defer(ephemeral=True)
+        return False
 
     @t.override
     async def on_error(
         self, itx: Interaction, error: app_commands.AppCommandError, /
     ) -> None:
+        send = partial(itx.response.send_message, ephemeral=True)
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
-            await itx.response.send_message(msg, ephemeral=True)
-        else:
-            await super().on_error(itx, error)
+            await send(msg)
+        elif isinstance(error, app_commands.NoPrivateMessage):
+            msg = "This command cannot be used outside of a guild context."
+            await send(msg)
+
+        await super().on_error(itx, error)
 
     async def _get_payload(
         self, *, guild: Snowflake | None = None

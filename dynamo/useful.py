@@ -8,7 +8,6 @@ from discord import app_commands
 from discord.app_commands import Transform
 
 from .bot import BotExports, Interaction
-from .utils.logic import process_async_iterable
 from .utils.transformers import ScheduledEventTransformer
 
 log = logging.getLogger(__name__)
@@ -29,9 +28,8 @@ async def interested(
     event: Transform[discord.ScheduledEvent, ScheduledEventTransformer],
     ephemeral: bool = True,
 ) -> None:
-    users = await process_async_iterable(event.users())
-    users_interested = " ".join(u.mention for u in users) or "No users interested"
-    content = f"`[{event.name}]({event.url}) {users_interested}`"
+    users_interested = " ".join([u.mention async for u in event.users()])
+    content = f"`[{event.name}]({event.url}) {users_interested or 'None interested'}`"
 
     await itx.response.send_message(content=content, ephemeral=ephemeral)
 
@@ -42,8 +40,6 @@ async def interested_error(itx: Interaction, error: app_commands.AppCommandError
     msg = "An unexpected error ocurred. Please try again."
     if isinstance(error, app_commands.TransformerError):
         msg = "That's not a valid event in this guild. Did you enter the correct name or ID?"
-    elif isinstance(error, app_commands.NoPrivateMessage):
-        msg = "This command cannot be used outside of a guild context."
     await send(content=msg)
 
 
