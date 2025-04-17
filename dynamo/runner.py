@@ -36,9 +36,9 @@ def _run_bot(
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
-    from . import identicon, spotify, useful
+    from . import identicon, spotify, tags, useful
 
-    initial_exts: list[HasExports] = [identicon, spotify, useful]
+    initial_exts: list[HasExports] = [identicon, spotify, tags, useful]
 
     from .bot import Dynamo
 

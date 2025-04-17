@@ -5,7 +5,7 @@ from collections.abc import Generator
 
 from discord import Colour as DiscordColor
 
-from dynamo import _typings as t
+from dynamo import _typing_shim as t
 from dynamo.bot import Interaction
 
 MAX_PERCEIVED = 764.83

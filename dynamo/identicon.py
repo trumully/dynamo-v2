@@ -14,8 +14,9 @@ from discord import app_commands
 from discord.app_commands import Transform
 from PIL import Image
 
-from . import _typings as t
-from .bot import BotExports, Interaction
+from . import _typing_shim as t
+from ._typings import BotExports
+from .bot import Interaction
 from .utils.color import Color
 from .utils.transformers import CleanString
 from .utils.wrappers import executor_function

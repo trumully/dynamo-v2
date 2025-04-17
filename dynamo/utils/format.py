@@ -3,7 +3,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 from warnings import deprecated
 
-from dynamo import _typings as t
+from dynamo import _typing_shim as t
 
 from .files import ROOT, resolve_path_with_links
 

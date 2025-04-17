@@ -1,80 +1,30 @@
-"""Shim for typing- and annotation-related symbols to avoid runtime dependencies on `typing` or `typing-extensions`.
-
-A warning for annotation-related symbols: Do not directly import them from this module
-(e.g. `from ._typings import Any`)! Doing so will trigger the module-level `__getattr__`, causing `typing` to
-get imported. Instead, import the module and use symbols via attribute access as needed
-(e.g. `from . import _typings [as t]`). To avoid those symbols being evaluated at runtime, which would also cause
-`typing` to get imported, make sure to put `from __future__ import annotations` at the top of the module.
-"""
-
 from __future__ import annotations
 
-TYPE_CHECKING = False
-if TYPE_CHECKING:
-    from typing import (
-        Annotated,
-        Any,
-        Concatenate,
-        Literal,
-        NamedTuple,
-        Never,
-        NotRequired,
-        Protocol,
-        Required,
-        Self,
-        TypedDict,
-        TypeVar,
-        Unpack,
-        cast,
-        overload,
-        override,
-    )
-else:
+from discord import Interaction as DInter
+from discord.app_commands import Command, ContextMenu, Group
 
-    def __getattr__(name: str):
-        if name in {
-            "TYPE_CHECKING",
-            "Annotated",
-            "Any",
-            "Concatenate",
-            "Literal",
-            "NamedTuple",
-            "Never",
-            "NotRequired",
-            "Protocol",
-            "Required",
-            "Self",
-            "TypeVar",
-            "TypedDict",
-            "Unpack",
-            "cast",
-            "overload",
-            "override",
-        }:
-            import typing
-
-            return getattr(typing, name)
-
-        msg = f"module {__name__!r} has no attribute {name!r}"
-        raise AttributeError(msg)
+from . import _typing_shim as t
 
 
-__all__ = (
-    "TYPE_CHECKING",
-    "Annotated",
-    "Any",
-    "Concatenate",
-    "Literal",
-    "NamedTuple",
-    "Never",
-    "NotRequired",
-    "Protocol",
-    "Required",
-    "Self",
-    "TypeVar",
-    "TypedDict",
-    "Unpack",
-    "cast",
-    "overload",
-    "override",
-)
+class RawSubmittableCls(t.Protocol):
+    @classmethod
+    async def raw_submit(cls, interaction: DInter, data: str) -> object: ...
+
+
+class RawSubmittableStatic(t.Protocol):
+    @staticmethod
+    async def raw_submit(interaction: DInter, data: str) -> object: ...
+
+
+type ACommand = Command[t.Any, t.Any, t.Any]
+type AppCommandTypes = Group | ACommand | ContextMenu
+type RawSubmittable = RawSubmittableCls | RawSubmittableStatic
+
+
+class BotExports(t.NamedTuple):
+    commands: list[AppCommandTypes] | None = None
+    raw_modal_submits: dict[str, type[RawSubmittable]] | None = None
+
+
+class HasExports(t.Protocol):
+    exports: BotExports

@@ -12,9 +12,9 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from dynamo.bot import BotExports, Interaction
-
-from . import _typings as t
+from . import _typing_shim as t
+from ._typings import BotExports
+from .bot import Interaction
 from .utils.color import Color
 from .utils.files import ROOT, resolve_path_with_links
 from .utils.format import FONTS, human_join, is_cjk

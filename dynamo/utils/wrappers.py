@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from functools import wraps
 
-from dynamo import _typings as t
+from dynamo import _typing_shim as t
 
 type Coro[R] = Coroutine[t.Any, t.Any, R]
 type CoroFn[**P, R] = Callable[P, Coro[R]]
