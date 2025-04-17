@@ -18,29 +18,38 @@ if TYPE_CHECKING:
         Literal,
         NamedTuple,
         Never,
+        NotRequired,
         Protocol,
+        Required,
         Self,
         TypedDict,
         TypeVar,
+        Unpack,
         cast,
+        overload,
         override,
     )
 else:
 
     def __getattr__(name: str):
         if name in {
+            "TYPE_CHECKING",
             "Annotated",
             "Any",
             "Concatenate",
             "Literal",
-            "Never",
-            "Self",
             "NamedTuple",
-            "TypedDict",
+            "Never",
+            "NotRequired",
             "Protocol",
-            "override",
+            "Required",
+            "Self",
             "TypeVar",
+            "TypedDict",
+            "Unpack",
             "cast",
+            "overload",
+            "override",
         }:
             import typing
 
@@ -58,10 +67,14 @@ __all__ = (
     "Literal",
     "NamedTuple",
     "Never",
+    "NotRequired",
     "Protocol",
+    "Required",
     "Self",
     "TypeVar",
     "TypedDict",
+    "Unpack",
     "cast",
+    "overload",
     "override",
 )

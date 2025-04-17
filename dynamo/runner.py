@@ -15,6 +15,7 @@ import socket
 import threading
 from pathlib import Path
 
+import aiohttp
 import apsw
 import apsw.bestpractice
 import discord
@@ -35,20 +36,33 @@ def _run_bot(
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
-    from . import identicon, useful
+    from . import identicon, spotify, useful
 
-    initial_exts: list[HasExports] = [useful, identicon]
+    initial_exts: list[HasExports] = [identicon, spotify, useful]
 
     from .bot import Dynamo
 
     intents = discord.Intents.none()
     intents.guilds = True
+    intents.members = True
+    intents.presences = True
 
     read_conn = apsw.Connection(db_path, flags=apsw.SQLITE_OPEN_READONLY)
     rw_conn = apsw.Connection(db_path)
 
+    connector = aiohttp.TCPConnector(
+        family=socket.AddressFamily.AF_INET,
+        ttl_dns_cache=60,
+        loop=loop,
+    )
+    session = aiohttp.ClientSession(connector=connector)
+
     client = Dynamo(
-        intents=intents, conn=rw_conn, read_conn=read_conn, initial_exts=initial_exts
+        intents=intents,
+        session=session,
+        conn=rw_conn,
+        read_conn=read_conn,
+        initial_exts=initial_exts,
     )
 
     async def bot_entry_point() -> None:

@@ -5,6 +5,7 @@ import logging
 from collections.abc import Sequence
 from hashlib import blake2b
 
+import aiohttp
 import apsw
 import discord
 from async_utils.lru import LRU
@@ -112,6 +113,7 @@ class Dynamo(discord.AutoShardedClient):
         self,
         *args: object,
         intents: discord.Intents | None = None,
+        session: aiohttp.ClientSession,
         conn: apsw.Connection,
         read_conn: apsw.Connection,
         initial_exts: list[HasExports],
@@ -120,6 +122,7 @@ class Dynamo(discord.AutoShardedClient):
         intents = discord.Intents.none() if intents is None else intents
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
+        self.session = session
         self.conn = conn
         self.read_conn = read_conn
         self.block_cache: LRU[int, bool] = LRU(512)
