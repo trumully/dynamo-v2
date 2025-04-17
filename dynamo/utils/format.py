@@ -1,4 +1,3 @@
-import re
 from collections.abc import Sequence
 from enum import StrEnum, auto
 from pathlib import Path
@@ -43,15 +42,32 @@ class CJK(StrEnum):
     NONE = auto()
 
 
+# https://en.wikipedia.org/wiki/Unicode_block
+# KR
+HANGUL = range(0xAC00, 0xD7AF + 1)
+HANGUL_JAMO = range(0x1100, 0x11FF + 1)
+
+# JP
+HIRAGANA = range(0x3040, 0x309F + 1)
+KATAKANA = range(0x30A0, 0x30FF + 1)
+
+# Han
+CJK_COMPAT = range(0xF900, 0xFAFF + 1)
+
+
+def any_chars_in_ranges(text: str, *ranges: range) -> bool:
+    return any(ord(c) in r for r in ranges for c in text)
+
+
 def is_cjk(text: str) -> CJK:
     """Check if a string contains any CJK characters."""
-    if re.search(r"[\u4e00-\u9fff\u3400-\u4dbf]", text):
+    if any_chars_in_ranges(text, CJK_COMPAT):
         return CJK.CHINESE
 
-    if re.search(r"[\u3040-\u309f\u30a0-\u30ff]", text):
+    if any_chars_in_ranges(text, HIRAGANA, KATAKANA):
         return CJK.JAPANESE
 
-    if re.search(r"[\uac00-\ud7af\u1100-\u11ff]", text):
+    if any_chars_in_ranges(text, HANGUL, HANGUL_JAMO):
         return CJK.KOREAN
 
     return CJK.NONE
@@ -63,8 +79,8 @@ class Font(t.NamedTuple):
 
 
 def _get_font(name: str) -> Font:
-    regular = resolve_path_with_links(FONT_PATH / f"{name}-Regular.ttf")
-    bold = resolve_path_with_links(FONT_PATH / f"{name}-Bold.ttf")
+    regular = resolve_path_with_links(FONT_PATH / f"{name}-Regular.woff2")
+    bold = resolve_path_with_links(FONT_PATH / f"{name}-Bold.woff2")
     return Font(regular, bold)
 
 
