@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
-
 import msgspec
 from base2048 import decode, encode
 
@@ -9,9 +7,6 @@ from dynamo import _typing_shim as t
 
 encoder = msgspec.json.Encoder()
 decoder = msgspec.json.Decoder()
-
-type Coro[R] = Coroutine[t.Any, t.Any, R]
-type CoroFn[**P, R] = Callable[P, Coro[R]]
 
 
 def to_json(obj: t.Any) -> str:

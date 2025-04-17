@@ -8,6 +8,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from queue import SimpleQueue
 
+import apsw.ext
+
 from dynamo import _typing_shim as t
 
 from .files import platformdir, resolve_path_with_links
@@ -61,6 +63,7 @@ FORMATS = {
 
 
 class AnsiTermFormatter(logging.Formatter):
+    @t.override
     def format(self, record: logging.LogRecord) -> str:  # noqa: PLR6301
         formatter = FORMATS.get(record.levelno)
         if formatter is None:
@@ -73,7 +76,7 @@ class AnsiTermFormatter(logging.Formatter):
         return output
 
 
-def use_color_formatting(stream: Stream[str]) -> bool:
+def use_color_formatting(stream: Stream[str], /) -> bool:
     is_a_tty = False
 
     if hasattr(stream, "isatty"):
@@ -106,15 +109,16 @@ def with_logging() -> Generator[None]:
 
     rotating_file_handler.setFormatter(FMT)
 
-    # add the queue listener for this
     q_listener = logging.handlers.QueueListener(q, stream_h, rotating_file_handler)
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(q_handler)
 
-    # adjust log levels
     logging.getLogger("discord").setLevel(logging.WARNING)
     logging.getLogger("discord.client").setLevel(logging.INFO)
+
+    apsw_log = logging.getLogger("apsw_forwarded")
+    apsw.ext.log_sqlite(logger=apsw_log)
 
     try:
         q_listener.start()
