@@ -1,4 +1,6 @@
-from dynamo.bot import Interaction
+from __future__ import annotations
+
+from .bot import Interaction
 
 
 def ac_cache_transform(

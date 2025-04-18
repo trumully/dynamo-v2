@@ -155,7 +155,7 @@ class Dynamo(discord.AutoShardedClient):
         if blocked is not None:
             return blocked
 
-        row = self.read_conn.execute(
+        b: bool = self.read_conn.execute(
             """
             SELECT EXISTS (
                 SELECT 1 FROM discord_users
@@ -163,9 +163,8 @@ class Dynamo(discord.AutoShardedClient):
             );
             """,
             (user_id,),
-        ).fetchone()
-        assert row is not None, "SELECT EXISTS top level query"
-        b: bool = row[0]
+        ).get
+        assert b is not None, "SELECT EXISTS top level query"
         self.block_cache[user_id] = b
         return b
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 import discord
 from async_utils.corofunc_cache import lrucorocache
 from discord.app_commands import Choice, Group, Range, describe
@@ -12,7 +10,6 @@ from ._typings import BotExports
 from .bot import Interaction
 from .utils.logic import b2048pack, b2048unpack
 
-log = logging.getLogger(__name__)
 tag_group = Group(name="tag", description="Store and recall content")
 
 
@@ -48,7 +45,6 @@ class TagModal(Modal):
         if not modal_components:
             return
         content = modal_components[0]["value"]
-        await itx.response.send_message(content="Saving tag", ephemeral=True)
         with itx.client.conn:
             itx.client.conn.execute(
                 """
@@ -59,6 +55,7 @@ class TagModal(Modal):
                 """,
                 {"author_id": author_id, "tag_name": tag_name, "content": content},
             )
+        await itx.response.send_message(content="Tag created", ephemeral=True)
 
 
 @tag_group.command(name="create", description="Create or replace tag content")
@@ -71,18 +68,17 @@ async def tag_create(itx: Interaction, name: Range[str, 1, 20]) -> None:
 @tag_group.command(name="get", description="Get content of a tag")
 @describe(name="The tag to get")
 async def tag_get(itx: Interaction, name: Range[str, 1, 20]) -> None:
-    row = itx.client.read_conn.execute(
+    content = itx.client.read_conn.execute(
         """
         SELECT content FROM user_tags
         WHERE user_id = ? AND tag_name = ? LIMIT 1;
         """,
         (itx.user.id, name),
-    ).fetchone()
+    ).get
 
-    if row is None:
+    if content is None:
         await itx.response.send_message(content="No such tag.", ephemeral=True)
     else:
-        (content,) = row
         await itx.response.send_message(content)
 
 
@@ -98,8 +94,8 @@ async def tag_del(itx: Interaction, name: Range[str, 1, 20]) -> None:
             RETURNING tag_name
             """,
             (itx.user.id, name),
-        ).fetchone()
-    msg = "Tag deleted" if row else "No such tag"
+        ).get
+    msg = "No such tag" if row is None else "Tag deleted"
     await itx.edit_original_response(content=msg)
 
 
