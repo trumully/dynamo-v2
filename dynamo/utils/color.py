@@ -57,7 +57,7 @@ class Color(DiscordColor):
 
     @classmethod
     async def transform(cls: type[t.Self], itx: Interaction, value: str, /) -> t.Self:
-        return t.cast(t.Self, Color.from_str(value))
+        return t.cast(t.Self, cls.from_str(value))
 
     @classmethod
     def from_hsl(cls: type[t.Self], hue: float, sat: float, lum: float) -> t.Self:
