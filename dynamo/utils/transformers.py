@@ -9,7 +9,7 @@ from async_utils.lru import LRU
 from discord import AppCommandOptionType, app_commands
 from discord.app_commands import Transformer
 
-from dynamo import _typings as t
+from dynamo import _typing_shim as t
 from dynamo.bot import Interaction
 
 if t.TYPE_CHECKING:

@@ -4,16 +4,14 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from functools import wraps
 
-from dynamo import _typings as t
-
-type Coro[R] = Coroutine[t.Any, t.Any, R]
+type Coro[R] = Coroutine[None, None, R]
 type CoroFn[**P, R] = Callable[P, Coro[R]]
 
 
 _WRAP_ASSIGN = ("__module__", "__name__", "__qualname__", "__doc__")
 
 
-def executor_function[**P, R](func: Callable[P, R]) -> CoroFn[P, R]:
+def run_in_thread[**P, R](func: Callable[P, R]) -> CoroFn[P, R]:
     """Send sync function to thread."""
 
     @wraps(func, assigned=_WRAP_ASSIGN)

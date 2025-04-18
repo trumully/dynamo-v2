@@ -3,7 +3,7 @@ from dynaconf.typed import (  # type: ignore[reportMissingTypeStubs]
     Options,
     Validator,
 )
-from dynamo import _typings as t
+from dynamo import _typing_shim as t
 
 # A discord bot token is a string that matches the following pattern:
 # >>> "[M|N|O]XXXXXXXXXXXXXXXXXXXXXXX[XX].XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
@@ -17,7 +17,7 @@ class Settings(Dynaconf):
         envvar_prefix="DYNAMO",
         settings_files=[".secrets.toml"],
     )
-    token: t.Annotated[str, Validator(regex=bot_regex)]  # type: ignore[reportUninitializedInstanceVariable]
+    token: t.Annotated[str, Validator(regex=bot_regex)] = ""
 
 
 settings = Settings()

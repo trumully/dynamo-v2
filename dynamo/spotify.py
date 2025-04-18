@@ -12,13 +12,13 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from dynamo.bot import BotExports, Interaction
-
-from . import _typings as t
+from . import _typing_shim as t
+from ._typings import BotExports
+from .bot import Interaction
 from .utils.color import Color
 from .utils.files import ROOT, resolve_path_with_links
 from .utils.format import FONTS, human_join, is_cjk
-from .utils.wrappers import executor_function
+from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ async def make_embed(
     return embed, file
 
 
-@executor_function
+@run_in_thread
 def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
     title_font = get_font(activity.title, FONT_LARGE, bold=True)
     _, _, title_width, *_ = title_font.getbbox(activity.title)

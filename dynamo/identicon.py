@@ -14,11 +14,12 @@ from discord import app_commands
 from discord.app_commands import Transform
 from PIL import Image
 
-from . import _typings as t
-from .bot import BotExports, Interaction
+from . import _typing_shim as t
+from ._typings import BotExports
+from .bot import Interaction
 from .utils.color import Color
 from .utils.transformers import CleanString
-from .utils.wrappers import executor_function
+from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ def generate_color(digest: str) -> Color:
     return Color.from_hsl(hue, 65.0 - sat, 75.0 - lum)
 
 
-@executor_function
+@run_in_thread
 def identicon_to_img(digest: str, *, foreground: Color, background: Color) -> bytes:
     to_fill = generate_pattern(digest)
 

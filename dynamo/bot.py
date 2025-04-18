@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 from collections.abc import Sequence
 from functools import partial
 from hashlib import blake2b
@@ -14,26 +15,17 @@ from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
-from . import _typings as t
+from . import _typing_shim as t
+from ._typings import HasExports, RawSubmittable
 from .utils.files import platformdir, resolve_path_with_links
 from .utils.logic import to_json
 
 type Interaction = discord.Interaction[Dynamo]
 
 
-type ACommand = app_commands.Command[t.Any, t.Any, t.Any]
-type AppCommandTypes = app_commands.Group | ACommand | app_commands.ContextMenu
-
-
-class BotExports(t.NamedTuple):
-    commands: list[AppCommandTypes] | None = None
-
-
-class HasExports(t.Protocol):
-    exports: BotExports
-
-
 log = logging.getLogger(__name__)
+
+MODAL_REGEX = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
@@ -127,6 +119,7 @@ class Dynamo(discord.AutoShardedClient):
         intents = discord.Intents.none() if intents is None else intents
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
+        self.raw_modal_submits: dict[str, RawSubmittable] = {}
         self.session = session
         self.conn = conn
         self.read_conn = read_conn
@@ -146,16 +139,23 @@ class Dynamo(discord.AutoShardedClient):
                 ((user_id,) for user_id in user_ids),
             )
 
-    async def on_interaction(self, interaction: Interaction) -> None:
-        if not await self.is_blocked(interaction.user.id):
-            self._last_interact_waterfall.put(interaction.user.id)
+    async def on_interaction(self, itx: Interaction) -> None:
+        if not await self.is_blocked(itx.user.id):
+            self._last_interact_waterfall.put(itx.user.id)
+
+        if itx.type is InteractionType.modal_submit and itx.data is not None:
+            custom_id = itx.data.get("custom_id", "")
+            if match := MODAL_REGEX.match(custom_id):
+                modal_name, data = match.groups()
+                if rs := self.raw_modal_submits.get(modal_name):
+                    await rs.raw_submit(itx, data)
 
     async def is_blocked(self, user_id: int) -> bool:
         blocked = self.block_cache.get(user_id, None)
         if blocked is not None:
             return blocked
 
-        row = self.read_conn.execute(
+        b: bool = self.read_conn.execute(
             """
             SELECT EXISTS (
                 SELECT 1 FROM discord_users
@@ -163,9 +163,8 @@ class Dynamo(discord.AutoShardedClient):
             );
             """,
             (user_id,),
-        ).fetchone()
-        assert row is not None, "SELECT EXISTS top level query"
-        b: bool = row[0]
+        ).get
+        assert b is not None, "SELECT EXISTS top level query"
         self.block_cache[user_id] = b
         return b
 
@@ -188,6 +187,8 @@ class Dynamo(discord.AutoShardedClient):
             if exports.commands:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)
+            if exports.raw_modal_submits:
+                self.raw_modal_submits.update(exports.raw_modal_submits)
 
         path = platformdir.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)

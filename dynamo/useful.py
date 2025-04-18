@@ -7,7 +7,8 @@ import discord
 from discord import app_commands
 from discord.app_commands import Transform
 
-from .bot import BotExports, Interaction
+from ._typings import BotExports
+from .bot import Interaction
 from .utils.transformers import ScheduledEventTransformer
 
 log = logging.getLogger(__name__)
