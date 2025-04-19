@@ -97,6 +97,7 @@ async def make_embed(
 
 @dataclass(slots=True)
 class Card:
+    track: str
     artists: list[str]
     album: str
     end: datetime.datetime
@@ -108,6 +109,7 @@ class Card:
     def _draw_static(
         image: Image.Image,
         draw: ImageDraw.ImageDraw,
+        track: str,
         all_artists: list[str],
         album: str,
         end: datetime.datetime,
@@ -123,14 +125,15 @@ class Card:
                 FONT,
                 Paint(t.cast(TextColor, (*WHITE, 255))),
             )
-            w.draw_text(
-                album,
-                CONTENT_X,
-                PADDING + FONT_LARGE + FONT_MEDIUM + 10,
-                FONT_MEDIUM,
-                FONT,
-                Paint(t.cast(TextColor, (*WHITE, 255))),
-            )
+            if track != album:
+                w.draw_text(
+                    album,
+                    CONTENT_X,
+                    PADDING + FONT_LARGE + FONT_MEDIUM + 10,
+                    FONT_MEDIUM,
+                    FONT,
+                    Paint(t.cast(TextColor, (*WHITE, 255))),
+                )
 
         draw_progress_bar(image, draw, end, duration)
 
@@ -143,6 +146,7 @@ class Card:
         Card._draw_static(
             self.image,
             self.draw,
+            self.track,
             self.artists,
             self.album,
             self.end,
@@ -155,6 +159,7 @@ class Card:
         Card._draw_static(
             frame,
             ImageDraw.Draw(frame),
+            self.track,
             self.artists,
             self.album,
             self.end,
@@ -174,6 +179,7 @@ def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
         base_draw = ImageDraw.Draw(base)
 
     card = Card(
+        activity.name,
         activity.artists,
         activity.album,
         activity.end,
