@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import logging
 import re
-from collections.abc import Sequence
 from functools import partial
 from hashlib import blake2b
 
@@ -11,7 +10,6 @@ import aiohttp
 import apsw
 import discord
 from async_utils.lru import LRU
-from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
@@ -47,7 +45,7 @@ def _hash_payload(payload: list[dict[str, object]]) -> bytes:
 class VersionedTree(app_commands.CommandTree["Dynamo"]):
     @classmethod
     def from_dynamo(cls: type[t.Self], client: Dynamo) -> t.Self:
-        installs = app_commands.AppInstallationType(user=True, guild=True)
+        installs = app_commands.AppInstallationType(user=False, guild=True)
 
         ctx = app_commands.AppCommandContext
         contexts = ctx(dm_channel=True, guild=True, private_channel=True)
@@ -78,9 +76,6 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
-            await send(msg)
-        elif isinstance(error, app_commands.NoPrivateMessage):
-            msg = "This command cannot be used outside of a guild context."
             await send(msg)
 
         await super().on_error(itx, error)
@@ -124,25 +119,9 @@ class Dynamo(discord.AutoShardedClient):
         self.conn = conn
         self.read_conn = read_conn
         self.block_cache: LRU[int, bool] = LRU(512)
-        self._last_interact_waterfall = Waterfall(10, 100, self.update_last_seen)
         self.initial_exts = initial_exts
 
-    async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
-        with self.conn:
-            self.conn.executemany(
-                """
-                INSERT INTO discord_users (user_id, last_interaction)
-                VALUES (?, CURRENT_TIMESTAMP)
-                ON CONFLICT (user_id)
-                DO UPDATE SET last_interaction=excluded.last_interaction;
-                """,
-                ((user_id,) for user_id in user_ids),
-            )
-
     async def on_interaction(self, itx: Interaction) -> None:
-        if not await self.is_blocked(itx.user.id):
-            self._last_interact_waterfall.put(itx.user.id)
-
         if itx.type is InteractionType.modal_submit and itx.data is not None:
             custom_id = itx.data.get("custom_id", "")
             if match := MODAL_REGEX.match(custom_id):
@@ -158,7 +137,7 @@ class Dynamo(discord.AutoShardedClient):
         b: bool = self.read_conn.execute(
             """
             SELECT EXISTS (
-                SELECT 1 FROM discord_users
+                SELECT 1 FROM users
                 WHERE user_id=? AND is_blocked LIMIT 1
             );
             """,
@@ -173,7 +152,7 @@ class Dynamo(discord.AutoShardedClient):
         with self.conn:
             self.conn.execute(
                 """
-                INSERT INTO discord_users (user_id, is_blocked)
+                INSERT INTO users (user_id, is_blocked)
                 VALUES (?, ?)
                 ON CONFLICT (user_id)
                 DO UPDATE SET is_blocked=excluded.is_blocked
@@ -200,11 +179,3 @@ class Dynamo(discord.AutoShardedClient):
                 await self.tree.sync()
                 fp.seek(0)
                 fp.write(tree_hash)
-
-    async def start(self, token: str, *, reconnect: bool = True) -> None:
-        self._last_interact_waterfall.start()
-        await super().start(token, reconnect=reconnect)
-
-    async def close(self) -> None:
-        await super().close()
-        await self._last_interact_waterfall.stop()

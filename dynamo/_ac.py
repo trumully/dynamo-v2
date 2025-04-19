@@ -8,3 +8,12 @@ def ac_cache_transform(
 ) -> tuple[tuple[int, str], dict[str, object]]:
     itx, current = args
     return (itx.user.id, current), kwds
+
+
+def ac_cache_transform_guild(
+    args: tuple[Interaction, str], kwds: dict[str, object]
+) -> tuple[tuple[int, str], dict[str, object]]:
+    itx, current = args
+    if itx.guild is None:
+        return (1, current), kwds
+    return (itx.guild.id, current), kwds
