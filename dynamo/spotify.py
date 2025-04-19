@@ -10,17 +10,22 @@ import aiohttp
 import discord
 from async_utils.task_cache import lrutaskcache
 from discord import app_commands
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from imagetext_py import Color as TextColor
+from imagetext_py import FontDB, Paint, Writer
+from PIL import Image, ImageDraw, ImageFilter
 
+from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
 from .utils.files import ROOT, resolve_path_with_links
-from .utils.format import FONTS, human_join, is_cjk
+from .utils.format import FONT_PATH, human_join
 from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
 
+FontDB.LoadFromDir(str(FONT_PATH))
+FONT = FontDB.Query(" ".join(font.stem for font in FONT_PATH.rglob("*.ttf")))
 
 WHITE = Color.white().to_rgb()
 GRAY = (64, 64, 64)
@@ -45,9 +50,9 @@ PROG_BAR_Y = SIZE[1] - PROG_BAR_HEIGHT - PADDING - 30
 PROG_BAR_LENGTH = PROG_BAR_X + PROG_BAR_WIDTH
 PROG_TXT_Y = SIZE[1] - PADDING - 24
 
-FONT_LARGE = 28
-FONT_MEDIUM = 22
-FONT_SMALL = 18
+FONT_LARGE = 32
+FONT_MEDIUM = 28
+FONT_SMALL = 26
 
 MAX_SLIDE_SPEED = 10
 BASE_SLIDE_SPEED = 1
@@ -69,12 +74,6 @@ async def get_album_cover(session: aiohttp.ClientSession, url: str, /) -> bytes:
     async with session.get(url) as r:
         r.raise_for_status()
         return await r.read()
-
-
-def get_font(text: str, size: int, /, *, bold: bool = False) -> ImageFont.FreeTypeFont:
-    family = FONTS[is_cjk(text)]
-    p = family.bold if bold else family.regular
-    return ImageFont.truetype(str(p), size)
 
 
 async def make_embed(
@@ -99,6 +98,7 @@ async def make_embed(
 @dataclass(slots=True)
 class Card:
     artists: list[str]
+    album: str
     end: datetime.datetime
     duration: datetime.timedelta
     image: Image.Image
@@ -108,19 +108,31 @@ class Card:
     def _draw_static(
         image: Image.Image,
         draw: ImageDraw.ImageDraw,
-        artists: list[str],
+        all_artists: list[str],
+        album: str,
         end: datetime.datetime,
         duration: datetime.timedelta,
     ) -> None:
-        a = ", ".join(artists)
-        draw.text(
-            (CONTENT_X, PADDING + FONT_LARGE + 5),
-            a,
-            WHITE,
-            get_font(a, FONT_MEDIUM),
-        )
+        artists = ", ".join(all_artists)
+        with Writer(image) as w:
+            w.draw_text(
+                artists,
+                CONTENT_X,
+                PADDING + FONT_LARGE + 5,
+                FONT_MEDIUM,
+                FONT,
+                Paint(t.cast(TextColor, (*WHITE, 255))),
+            )
+            w.draw_text(
+                album,
+                CONTENT_X,
+                PADDING + FONT_LARGE + FONT_MEDIUM + 10,
+                FONT_MEDIUM,
+                FONT,
+                Paint(t.cast(TextColor, (*WHITE, 255))),
+            )
 
-        draw_progress_bar(draw, end, duration)
+        draw_progress_bar(image, draw, end, duration)
 
         with Image.open(LOGO_PATH) as logo_base:
             logo = logo_base.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
@@ -128,21 +140,31 @@ class Card:
             image.paste(logo, xy, logo)
 
     def draw_static(self) -> None:
-        Card._draw_static(self.image, self.draw, self.artists, self.end, self.duration)
+        Card._draw_static(
+            self.image,
+            self.draw,
+            self.artists,
+            self.album,
+            self.end,
+            self.duration,
+        )
 
     def frame(self, text_frame: Image.Image) -> Image.Image:
         frame = self.image.copy()
         frame.paste(text_frame, (CONTENT_X, PADDING), text_frame)
         Card._draw_static(
-            frame, ImageDraw.Draw(frame), self.artists, self.end, self.duration
+            frame,
+            ImageDraw.Draw(frame),
+            self.artists,
+            self.album,
+            self.end,
+            self.duration,
         )
         return frame
 
 
 @run_in_thread
 def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
-    title_font = get_font(activity.title, FONT_LARGE, bold=True)
-    _, _, title_width, *_ = title_font.getbbox(activity.title)
     with open_image_bytes(album) as album_cover:
         base = Image.new("RGBA", SIZE)
         gradient = make_gradient(album_cover)
@@ -151,24 +173,26 @@ def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
         base.paste(album_reszied, (0, 0))
         base_draw = ImageDraw.Draw(base)
 
-    card = Card(activity.artists, activity.end, activity.duration, base, base_draw)
-    if title_width <= CONTENT_MAX_WIDTH:
-        card.draw.text((CONTENT_X, PADDING), activity.title, WHITE, title_font)
-        card.draw_static()
-        return save_image(card.image, "png")
+    card = Card(
+        activity.artists,
+        activity.album,
+        activity.end,
+        activity.duration,
+        base,
+        base_draw,
+    )
 
-    frames = [card.frame(frame) for frame in scroll_text(activity.title, title_font)]
-    duration = min(
-        MAX_FRAME_DURATION, max(MIN_FRAME_DURATION, ANIMATION_TIME // len(frames))
-    )
-    return save_image(
-        frames[0],
-        "gif",
-        save_all=True,
-        append_images=frames[1:],
-        duration=duration,
-        loop=0,
-    )
+    with Writer(base) as w:
+        w.draw_text(
+            activity.title,
+            CONTENT_X,
+            PADDING,
+            FONT_LARGE,
+            FONT,
+            Paint(t.cast(TextColor, (*WHITE, 255))),
+        )
+    card.draw_static()
+    return save_image(card.image, "png")
 
 
 def save_image(im: Image.Image, fmt: str, /, **kwargs: object) -> tuple[BytesIO, str]:
@@ -176,43 +200,6 @@ def save_image(im: Image.Image, fmt: str, /, **kwargs: object) -> tuple[BytesIO,
     im.save(buffer, fmt, **kwargs)
     buffer.seek(0)
     return buffer, fmt
-
-
-def scroll_text(text: str, font: ImageFont.FreeTypeFont) -> list[Image.Image]:
-    _, _, text_width, text_height = font.getbbox(text)
-    if text_width <= CONTENT_MAX_WIDTH:
-        return [scroll_text_frame(text, (CONTENT_MAX_WIDTH, int(text_height)), font)]
-
-    padded_text = f"{text}   {text}"
-    _, _, padded_width, *_ = font.getbbox(padded_text)
-    slide_speed = min(
-        MAX_SLIDE_SPEED,
-        max(BASE_SLIDE_SPEED, padded_width // FRAME),
-    )
-    full_loop_distance = padded_width // 2
-    frames = int(full_loop_distance // slide_speed)
-    return [
-        scroll_text_frame(
-            padded_text,
-            (CONTENT_MAX_WIDTH, int(text_height)),
-            font,
-            -int(i * slide_speed % full_loop_distance),
-        )
-        for i in range(frames)
-    ]
-
-
-def scroll_text_frame(
-    text: str,
-    size: tuple[int, int],
-    font: ImageFont.FreeTypeFont,
-    x: int = 0,
-) -> Image.Image:
-    frame = Image.new("RGBA", size)
-    draw = ImageDraw.Draw(frame)
-    draw.text((x, 0), text, WHITE, font)
-    draw.text((x + font.getbbox(text)[2], 0), text, WHITE, font)
-    return frame
 
 
 def format_seconds(seconds: int, /) -> str:
@@ -246,6 +233,7 @@ def _prog_bar_length_relative_to(relative_width: int) -> tuple[int, int, int, in
 
 
 def draw_progress_bar(
+    image: Image.Image,
     draw: ImageDraw.ImageDraw,
     end: datetime.datetime,
     duration: datetime.timedelta,
@@ -267,7 +255,15 @@ def draw_progress_bar(
     duration_seconds = int(duration.total_seconds())
     played = int(min(duration_seconds, duration_seconds * progress))
     prog_txt = f"{format_seconds(played)} / {format_seconds(duration_seconds)}"
-    draw.text((PROG_BAR_X, PROG_TXT_Y), prog_txt, WHITE, get_font(prog_txt, FONT_SMALL))
+    with Writer(image) as w:
+        w.draw_text(
+            prog_txt,
+            PROG_BAR_X,
+            PROG_TXT_Y,
+            FONT_SMALL,
+            FONT,
+            Paint(t.cast(TextColor, (*WHITE, 255))),
+        )
 
 
 def make_gradient(cover_copy: Image.Image, /) -> Image.Image:
