@@ -2,7 +2,7 @@ import datetime
 import logging
 from collections.abc import Generator
 from contextlib import contextmanager
-from enum import StrEnum
+from dataclasses import dataclass
 from functools import partial
 from io import BytesIO
 
@@ -12,7 +12,6 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
@@ -21,12 +20,6 @@ from .utils.format import FONTS, human_join, is_cjk
 from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
-
-
-class Card(t.TypedDict, total=False):
-    activity: t.Required[discord.Spotify]
-    image: t.Required[Image.Image]
-    draw: t.Required[ImageDraw.ImageDraw]
 
 
 WHITE = Color.white().to_rgb()
@@ -57,16 +50,11 @@ FONT_MEDIUM = 22
 FONT_SMALL = 18
 
 MAX_SLIDE_SPEED = 10
-BASE_SLIDE_SPEED = 2
+BASE_SLIDE_SPEED = 1
 ANIMATION_TIME = 1_000
 MAX_FRAME_DURATION = 100
 MIN_FRAME_DURATION = 30
 FRAME = ANIMATION_TIME // MIN_FRAME_DURATION
-
-
-class Format(StrEnum):
-    STATIC = "png"
-    ANIMATED = "gif"
 
 
 def url_cache_transform(
@@ -106,86 +94,123 @@ async def make_embed(
     return embed, file
 
 
+@dataclass(slots=True)
+class Card:
+    artists: list[str]
+    end: datetime.datetime
+    duration: datetime.timedelta
+    image: Image.Image
+    draw: ImageDraw.ImageDraw
+
+    @staticmethod
+    def _draw_static(
+        image: Image.Image,
+        draw: ImageDraw.ImageDraw,
+        artists: list[str],
+        end: datetime.datetime,
+        duration: datetime.timedelta,
+    ) -> None:
+        a = ", ".join(artists)
+        draw.text(
+            (CONTENT_X, PADDING + FONT_LARGE + 5),
+            a,
+            WHITE,
+            get_font(a, FONT_MEDIUM),
+        )
+
+        draw_progress_bar(draw, end, duration)
+
+        with Image.open(LOGO_PATH) as logo_base:
+            logo = logo_base.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
+            xy = (SIZE[0] - LOGO_SIZE[0] - PADDING, PADDING)
+            image.paste(logo, xy, logo)
+
+    def draw_static(self) -> None:
+        Card._draw_static(self.image, self.draw, self.artists, self.end, self.duration)
+
+    def frame(self, text_frame: Image.Image) -> Image.Image:
+        frame = self.image.copy()
+        frame.paste(text_frame, (CONTENT_X, PADDING), text_frame)
+        Card._draw_static(
+            frame, ImageDraw.Draw(frame), self.artists, self.end, self.duration
+        )
+        return frame
+
+
 @run_in_thread
 def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
     title_font = get_font(activity.title, FONT_LARGE, bold=True)
     _, _, title_width, *_ = title_font.getbbox(activity.title)
-    with make_card(activity) as card:
-        with open_image_bytes(album) as album_cover:
-            album_copy = album_cover.copy()
-            gradient = make_gradient(album_copy)
-            album_copy = album_copy.resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
-            card["image"].paste(gradient, (0, 0))
-            card["image"].paste(album_copy, (0, 0))
+    with open_image_bytes(album) as album_cover:
+        base = Image.new("RGBA", SIZE)
+        gradient = make_gradient(album_cover)
+        base.paste(gradient, (0, 0))
+        album_reszied = album_cover.resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
+        base.paste(album_reszied, (0, 0))
+        base_draw = ImageDraw.Draw(base)
 
-        # If there is no overflow, make a static image
-        if int(title_width) <= CONTENT_MAX_WIDTH:
-            card["draw"].text((CONTENT_X, PADDING), activity.title, WHITE, title_font)
-            draw_static(**card)
-            return save_image(card["image"], Format.STATIC)
+    card = Card(activity.artists, activity.end, activity.duration, base, base_draw)
+    if title_width <= CONTENT_MAX_WIDTH:
+        card.draw.text((CONTENT_X, PADDING), activity.title, WHITE, title_font)
+        card.draw_static()
+        return save_image(card.image, "png")
 
-        # Make an animated image instead
-        text_frames = draw_scroll_text(title_font, activity.title, CONTENT_MAX_WIDTH)
-        frames = [make_card_frame(frame, **card) for frame in text_frames]
-        frame_duration = min(
-            MAX_FRAME_DURATION, max(ANIMATION_TIME // len(frames), MIN_FRAME_DURATION)
-        )
-        return save_image(
-            frames[0],
-            Format.ANIMATED,
-            save_all=True,
-            append_images=frames[1:],
-            frame_duration=frame_duration,
-            loop=0,
-        )
+    frames = [card.frame(frame) for frame in scroll_text(activity.title, title_font)]
+    duration = min(
+        MAX_FRAME_DURATION, max(MIN_FRAME_DURATION, ANIMATION_TIME // len(frames))
+    )
+    return save_image(
+        frames[0],
+        "gif",
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=0,
+    )
 
 
-def save_image(im: Image.Image, fmt: Format, /, **kwargs: object) -> tuple[BytesIO, str]:
+def save_image(im: Image.Image, fmt: str, /, **kwargs: object) -> tuple[BytesIO, str]:
     buffer = BytesIO()
     im.save(buffer, fmt, **kwargs)
     buffer.seek(0)
     return buffer, fmt
 
 
-def draw_scroll_text(
-    font: ImageFont.FreeTypeFont, text: str, width: int, /
-) -> Generator[Image.Image]:
-    *_, text_width, text_height = font.getbbox(text)
-    size = (width, int(text_height))
-    if int(text_width) <= width:
-        yield make_scroll_text_frame(text, size, font)
-        return
+def scroll_text(text: str, font: ImageFont.FreeTypeFont) -> list[Image.Image]:
+    _, _, text_width, text_height = font.getbbox(text)
+    if text_width <= CONTENT_MAX_WIDTH:
+        return [scroll_text_frame(text, (CONTENT_MAX_WIDTH, int(text_height)), font)]
 
     padded_text = f"{text}   {text}"
-    _, _, full_width, *_ = font.getbbox(padded_text)
-    slide_speed = min(MAX_SLIDE_SPEED, max(BASE_SLIDE_SPEED, full_width // FRAME))
-    num_frames = int(min(FRAME, full_width // slide_speed))
+    _, _, padded_width, *_ = font.getbbox(padded_text)
+    slide_speed = min(
+        MAX_SLIDE_SPEED,
+        max(BASE_SLIDE_SPEED, padded_width // FRAME),
+    )
+    full_loop_distance = padded_width // 2
+    frames = int(full_loop_distance // slide_speed)
+    return [
+        scroll_text_frame(
+            padded_text,
+            (CONTENT_MAX_WIDTH, int(text_height)),
+            font,
+            -int(i * slide_speed % full_loop_distance),
+        )
+        for i in range(frames)
+    ]
 
-    for i in range(num_frames):
-        x_pos = int(-i * slide_speed % full_width)
-        yield make_scroll_text_frame(padded_text, size, font, x_pos)
 
-
-def make_scroll_text_frame(
-    text: str, size: tuple[int, int], font: ImageFont.FreeTypeFont, x_pos: int = 0, /
+def scroll_text_frame(
+    text: str,
+    size: tuple[int, int],
+    font: ImageFont.FreeTypeFont,
+    x: int = 0,
 ) -> Image.Image:
     frame = Image.new("RGBA", size)
     draw = ImageDraw.Draw(frame)
-    x_offset = x_pos + font.getbbox(text)[2]
-    draw.text((x_pos, 0), text, WHITE, font)
-    draw.text((x_offset, 0), text, WHITE, font)
+    draw.text((x, 0), text, WHITE, font)
+    draw.text((x + font.getbbox(text)[2], 0), text, WHITE, font)
     return frame
-
-
-def make_card_frame(frame: Image.Image, **card: t.Unpack[Card]) -> Image.Image:
-    card_copy = card.copy()
-    card_frame = card_copy["image"].copy()
-    card_frame.paste(frame, (CONTENT_X, PADDING), frame)
-
-    card_copy["draw"] = ImageDraw.Draw(card_frame)
-
-    draw_static(**card_copy)
-    return card_frame
 
 
 def format_seconds(seconds: int, /) -> str:
@@ -212,33 +237,6 @@ def open_image_bytes(image: bytes, /) -> Generator[Image.Image]:
             yield im
         finally:
             buffer.close()
-
-
-@contextmanager
-def make_card(activity: discord.Spotify) -> Generator[Card]:
-    with Image.new("RGBA", SIZE) as im:
-        yield {"image": im, "draw": ImageDraw.Draw(im), "activity": activity}
-
-
-def draw_static(**card: t.Unpack[Card]) -> None:
-    image = card["image"]
-    draw = card["draw"]
-    activity = card["activity"]
-
-    artists = ", ".join(activity.artists)
-    draw.text(
-        (CONTENT_X, PADDING + FONT_LARGE + 5),
-        artists,
-        WHITE,
-        get_font(artists, FONT_MEDIUM),
-    )
-
-    draw_progress_bar(draw, activity.end, activity.duration)
-
-    with Image.open(LOGO_PATH) as logo_base:
-        logo = logo_base.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
-        xy = (SIZE[0] - LOGO_SIZE[0] - PADDING, PADDING)
-        image.paste(logo, xy, logo)
 
 
 def _prog_bar_length_relative_to(relative_width: int) -> tuple[int, int, int, int]:
