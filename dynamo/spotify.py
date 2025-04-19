@@ -87,7 +87,9 @@ async def make_embed(
     artists = f"**{human_join(activity.artists)}**"
     description = f"{mention} is listening to {track} by {artists}"
     embed = discord.Embed(
-        title="Now Playing", description=description, color=activity.color
+        title="<:_:1286859010045247488> Now Playing",
+        description=description,
+        color=activity.color,
     )
     file = discord.File(image, filename)
     embed.set_image(url=f"attachment://{filename}")
