@@ -129,6 +129,7 @@ def draw(
 ) -> BytesIO:
     cover_buf = BytesIO(album_cover)
     cover_buf.seek(0)
+    # unknown type because resize() uses numpy types under the hood
     cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
 
     duration_seconds = duration.total_seconds()
@@ -143,6 +144,7 @@ def draw(
 
         logo_buf = BytesIO(logo_bytes)
         logo_buf.seek(0)
+        # unknown type because resize() uses numpy types under the hood
         with Image.open(logo_buf).resize(LOGO_SIZE) as logo:  # type: ignore[reportUnknownMemberType]
             img.paste(logo, (WIDTH - LOGO_WIDTH - PADDING, PADDING), logo)
 
@@ -205,6 +207,7 @@ def make_gradient(cover: Image.Image, /) -> Image.Image:
             alpha = int(255 * (1 - y / HEIGHT))
             draw.line(pos, (0, 0, 0, alpha))
 
+    # unknown type because resize() uses numpy types under the hood
     with cover.convert("RGBA").resize(SIZE).filter(BLUR) as blurred:  # type: ignore[reportUnknownMemberType]
         gradient_applied = Image.alpha_composite(blurred, g)
 
@@ -226,9 +229,8 @@ async def get_spotify(
         return
 
     user = itx.user if user is None else user
-    member = itx.guild.get_member(user.id)
 
-    if member is None:
+    if (member := itx.guild.get_member(user.id)) is None:
         await error("That member is not in this guild.")
         return
 

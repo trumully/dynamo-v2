@@ -23,7 +23,8 @@ type Interaction = discord.Interaction[Dynamo]
 
 log = logging.getLogger(__name__)
 
-MODAL_REGEX = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
+modal_regex = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
+component_regex = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DOTALL)
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
@@ -115,6 +116,7 @@ class Dynamo(discord.AutoShardedClient):
         super().__init__(*args, intents=intents, **kwargs)
         self.tree = VersionedTree.from_dynamo(self)
         self.raw_modal_submits: dict[str, RawSubmittable] = {}
+        self.raw_component_submits: dict[str, RawSubmittable] = {}
         self.session = session
         self.conn = conn
         self.read_conn = read_conn
@@ -122,12 +124,16 @@ class Dynamo(discord.AutoShardedClient):
         self.initial_exts = initial_exts
 
     async def on_interaction(self, itx: Interaction) -> None:
-        if itx.type is InteractionType.modal_submit and itx.data is not None:
-            custom_id = itx.data.get("custom_id", "")
-            if match := MODAL_REGEX.match(custom_id):
-                modal_name, data = match.groups()
-                if rs := self.raw_modal_submits.get(modal_name):
-                    await rs.raw_submit(itx, data)
+        for kind, regex, mapping in (
+            (InteractionType.modal_submit, modal_regex, self.raw_modal_submits),
+            (InteractionType.component, component_regex, self.raw_component_submits),
+        ):
+            if itx.type is kind and itx.data is not None:
+                custom_id = itx.data.get("custom_id", "")
+                if match := regex.match(custom_id):
+                    name, data = match.groups()
+                    if rs := mapping.get(name):
+                        await rs.raw_submit(itx, data)
 
     async def is_blocked(self, user_id: int) -> bool:
         blocked = self.block_cache.get(user_id, None)
@@ -168,6 +174,8 @@ class Dynamo(discord.AutoShardedClient):
                     self.tree.add_command(command_obj)
             if exports.raw_modal_submits:
                 self.raw_modal_submits.update(exports.raw_modal_submits)
+            if exports.raw_component_submits:
+                self.raw_component_submits.update(exports.raw_component_submits)
 
         path = platformdir.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)
