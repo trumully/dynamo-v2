@@ -85,7 +85,7 @@ class AssetView:
             user_id,
             target_id,
             Asset.AVATAR,
-            asset_format,
+            Format.PNG,
             asset_size,
         ))
         v.add_item(DynButton(label="Avatar", custom_id=c_id, style=ButtonStyle.primary))
@@ -94,7 +94,7 @@ class AssetView:
             user_id,
             target_id,
             Asset.BANNER,
-            asset_format,
+            Format.PNG,
             asset_size,
         ))
         v.add_item(
