@@ -1,8 +1,6 @@
 import datetime
 import logging
-from collections.abc import Generator
-from contextlib import contextmanager
-from dataclasses import dataclass
+from collections.abc import Sequence
 from functools import partial
 from io import BytesIO
 
@@ -12,54 +10,50 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from imagetext_py import Color as TextColor
 from imagetext_py import FontDB, Paint, Writer
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
-from .utils.files import ROOT, resolve_path_with_links
 from .utils.format import FONT_PATH, human_join
 from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
 
+FONT_LARGE = 42
+FONT_MEDIUM = 28
+FONT_SMALL = 24
+
 FontDB.LoadFromDir(str(FONT_PATH))
 FONT = FontDB.Query(" ".join(font.stem for font in FONT_PATH.rglob("*.ttf")))
+# Font size differs between imagetext_py and PIL. I still want to use PIL for truncation
+# But use imagetext_py for (easy) fallback fonts
+MEDIUM = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_MEDIUM - 6)
+LARGE = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_LARGE - 10)
 
 WHITE = Color.white().to_rgb()
-GRAY = (64, 64, 64)
-
-LOGO_PATH = resolve_path_with_links(ROOT / "assets" / "img" / "spotify.png")
+PAINT_WHITE = Paint(t.cast(TextColor, (*WHITE, 255)))
+GRAY = (80, 80, 80)
 
 BLUR = ImageFilter.GaussianBlur(radius=30)
-LOGO_SIZE = (48, 48)  # px
-SIZE = (800, 250)
-ALBUM_SIZE = (250, 250)  # px
+LOGO_SIZE = LOGO_WIDTH, LOGO_HEIGHT = (48, 48)  # px
+SIZE = WIDTH, HEIGHT = (800, 250)
+ALBUM_SIZE = ALBUM_WIDTH, ALBUM_HEIGHT = (250, 250)  # px
 
-OFFSET = 20
 PADDING = 15
 
-CONTENT_X = ALBUM_SIZE[0] + OFFSET
-CONTENT_MAX_WIDTH = SIZE[0] - CONTENT_X - PADDING - LOGO_SIZE[0]
+CONTENT_X = ALBUM_WIDTH + 20
+CONTENT_MAX_WIDTH = WIDTH - CONTENT_X - PADDING - LOGO_WIDTH
 
-PROG_BAR_HEIGHT = 6
-PROG_BAR_WIDTH = SIZE[0] - CONTENT_X - PADDING - 70
-PROG_BAR_X = ALBUM_SIZE[0] + OFFSET
-PROG_BAR_Y = SIZE[1] - PROG_BAR_HEIGHT - PADDING - 30
-PROG_BAR_LENGTH = PROG_BAR_X + PROG_BAR_WIDTH
-PROG_TXT_Y = SIZE[1] - PADDING - 24
+BAR_HEIGHT = 6
+BAR_WIDTH = WIDTH - CONTENT_X - PADDING - 70
+BAR_X = ALBUM_WIDTH + 20
+BAR_Y = HEIGHT - BAR_HEIGHT - PADDING - 30
+BAR_LENGTH = BAR_X + BAR_WIDTH
+BAR_TEXT_Y = HEIGHT - PADDING - 24
 
-FONT_LARGE = 32
-FONT_MEDIUM = 28
-FONT_SMALL = 26
-
-MAX_SLIDE_SPEED = 10
-BASE_SLIDE_SPEED = 1
-ANIMATION_TIME = 1_000
-MAX_FRAME_DURATION = 100
-MIN_FRAME_DURATION = 30
-FRAME = ANIMATION_TIME // MIN_FRAME_DURATION
+LOGO_URL = "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png"
 
 
 def url_cache_transform(
@@ -70,7 +64,7 @@ def url_cache_transform(
 
 
 @lrutaskcache(maxsize=50, cache_transform=url_cache_transform)
-async def get_album_cover(session: aiohttp.ClientSession, url: str, /) -> bytes:
+async def get_image(session: aiohttp.ClientSession, url: str, /) -> bytes:
     async with session.get(url) as r:
         r.raise_for_status()
         return await r.read()
@@ -79,9 +73,17 @@ async def get_album_cover(session: aiohttp.ClientSession, url: str, /) -> bytes:
 async def make_embed(
     mention: str, session: aiohttp.ClientSession, activity: discord.Spotify
 ) -> tuple[discord.Embed, discord.File]:
-    cover = await get_album_cover(session, activity.album_cover_url)
-    image, ext = await draw(activity, cover)
-    filename = "spotify-card." + ext
+    cover = await get_image(session, activity.album_cover_url)
+    logo = await get_image(session, LOGO_URL)
+    image = await draw(
+        activity.title,
+        activity.artists,
+        activity.album,
+        cover,
+        logo,
+        activity.duration,
+        activity.end,
+    )
     track = f"**[{activity.title}](<{activity.track_url}>)**"
     artists = f"**{human_join(activity.artists)}**"
     description = f"{mention} is listening to {track} by {artists}"
@@ -90,206 +92,124 @@ async def make_embed(
         description=description,
         color=activity.color,
     )
-    file = discord.File(image, filename)
-    embed.set_image(url=f"attachment://{filename}")
+    file = discord.File(image, "spotify.png")
+    embed.set_image(url="attachment://spotify.png")
     return embed, file
 
 
-@dataclass(slots=True)
-class Card:
-    track: str
-    artists: list[str]
-    album: str
-    end: datetime.datetime
-    duration: datetime.timedelta
-    image: Image.Image
-    draw: ImageDraw.ImageDraw
+def truncate(
+    text: str, font: ImageFont.FreeTypeFont, max_length: int = CONTENT_MAX_WIDTH
+) -> str:
+    result = ""
+    for c in text:
+        result += c
+        if font.getlength(result) > max_length:
+            return result[:-2] + "..."
+    return result
 
-    @staticmethod
-    def _draw_static(
-        image: Image.Image,
-        draw: ImageDraw.ImageDraw,
-        track: str,
-        all_artists: list[str],
-        album: str,
-        end: datetime.datetime,
-        duration: datetime.timedelta,
-    ) -> None:
-        artists = ", ".join(all_artists)
-        with Writer(image) as w:
-            w.draw_text(
-                artists,
-                CONTENT_X,
-                PADDING + FONT_LARGE + 5,
-                FONT_MEDIUM,
-                FONT,
-                Paint(t.cast(TextColor, (*WHITE, 255))),
-            )
-            if track != album:
-                w.draw_text(
-                    album,
-                    CONTENT_X,
-                    PADDING + FONT_LARGE + FONT_MEDIUM + 10,
-                    FONT_MEDIUM,
-                    FONT,
-                    Paint(t.cast(TextColor, (*WHITE, 255))),
-                )
 
-        draw_progress_bar(image, draw, end, duration)
-
-        with Image.open(LOGO_PATH) as logo_base:
-            logo = logo_base.resize(LOGO_SIZE)  # type: ignore[reportUnknownMemberType]
-            xy = (SIZE[0] - LOGO_SIZE[0] - PADDING, PADDING)
-            image.paste(logo, xy, logo)
-
-    def draw_static(self) -> None:
-        Card._draw_static(
-            self.image,
-            self.draw,
-            self.track,
-            self.artists,
-            self.album,
-            self.end,
-            self.duration,
-        )
-
-    def frame(self, text_frame: Image.Image) -> Image.Image:
-        frame = self.image.copy()
-        frame.paste(text_frame, (CONTENT_X, PADDING), text_frame)
-        Card._draw_static(
-            frame,
-            ImageDraw.Draw(frame),
-            self.track,
-            self.artists,
-            self.album,
-            self.end,
-            self.duration,
-        )
-        return frame
+def time_from_seconds(seconds: int) -> str:
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    result = [f"{seconds:02d}", f"{minutes:02d}"]
+    if hours > 0:
+        result.append(f"{hours:02d}")
+    return ":".join(result[::-1])
 
 
 @run_in_thread
-def draw(activity: discord.Spotify, album: bytes) -> tuple[BytesIO, str]:
-    with open_image_bytes(album) as album_cover:
-        base = Image.new("RGBA", SIZE)
-        gradient = make_gradient(album_cover)
-        base.paste(gradient, (0, 0))
-        album_reszied = album_cover.resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
-        base.paste(album_reszied, (0, 0))
-        base_draw = ImageDraw.Draw(base)
-
-    card = Card(
-        activity.name,
-        activity.artists,
-        activity.album,
-        activity.end,
-        activity.duration,
-        base,
-        base_draw,
-    )
-
-    with Writer(base) as w:
-        w.draw_text(
-            activity.title,
-            CONTENT_X,
-            PADDING,
-            FONT_LARGE,
-            FONT,
-            Paint(t.cast(TextColor, (*WHITE, 255))),
-        )
-    card.draw_static()
-    return save_image(card.image, "png")
-
-
-def save_image(im: Image.Image, fmt: str, /, **kwargs: object) -> tuple[BytesIO, str]:
-    buffer = BytesIO()
-    im.save(buffer, fmt, **kwargs)
-    buffer.seek(0)
-    return buffer, fmt
-
-
-def format_seconds(seconds: int, /) -> str:
-    mins, secs = divmod(seconds, 60)
-    hrs, mins = divmod(mins, 60)
-    result: list[str] = [f"{mins:02d}", f"{secs:02d}"]
-    if hrs > 0:
-        result.insert(0, str(hrs))
-    return ":".join(result)
-
-
-def _song_progress(end: datetime.datetime, duration: datetime.timedelta, /) -> float:
-    """Get song progress as a percentage."""
-    remaining = end - discord.utils.utcnow()
-    return 1 - (remaining.total_seconds() / duration.total_seconds())
-
-
-@contextmanager
-def open_image_bytes(image: bytes, /) -> Generator[Image.Image]:
-    buffer = BytesIO(image)
-    buffer.seek(0)
-    with Image.open(buffer) as im:
-        try:
-            yield im
-        finally:
-            buffer.close()
-
-
-def _prog_bar_length_relative_to(relative_width: int) -> tuple[int, int, int, int]:
-    return (PROG_BAR_X, PROG_BAR_Y, relative_width, PROG_BAR_Y + PROG_BAR_HEIGHT)
-
-
-def draw_progress_bar(
-    image: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    end: datetime.datetime,
+def draw(
+    track_name: str,
+    artists: Sequence[str],
+    album_name: str,
+    album_cover: bytes,
+    logo_bytes: bytes,
     duration: datetime.timedelta,
-    /,
-) -> None:
-    progress = _song_progress(end, duration)
-    prog_width = max(
-        PROG_BAR_X,
-        min(PROG_BAR_LENGTH, (PROG_BAR_X + int(PROG_BAR_WIDTH * progress))),
-    )
+    end: datetime.datetime,
+) -> BytesIO:
+    cover_buf = BytesIO(album_cover)
+    cover_buf.seek(0)
+    cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
 
-    # Full duration bar
-    draw.rectangle(_prog_bar_length_relative_to(PROG_BAR_LENGTH), GRAY)
+    duration_seconds = duration.total_seconds()
+    progress = 1 - ((end - discord.utils.utcnow()).total_seconds() / duration_seconds)
 
-    # Draw progress if there is any on the track
-    if prog_width > PROG_BAR_X:
-        draw.rectangle(_prog_bar_length_relative_to(prog_width), WHITE)
+    time_on = time_from_seconds(int(duration_seconds * progress))
+    time_end = time_from_seconds(int(duration_seconds))
 
-    duration_seconds = int(duration.total_seconds())
-    played = int(min(duration_seconds, duration_seconds * progress))
-    prog_txt = f"{format_seconds(played)} / {format_seconds(duration_seconds)}"
-    with Writer(image) as w:
-        w.draw_text(
-            prog_txt,
-            PROG_BAR_X,
-            PROG_TXT_Y,
-            FONT_SMALL,
-            FONT,
-            Paint(t.cast(TextColor, (*WHITE, 255))),
+    with make_gradient(cover) as img:
+        draw = ImageDraw.Draw(img)
+        img.paste(cover, (0, 0), cover)
+
+        logo_buf = BytesIO(logo_bytes)
+        logo_buf.seek(0)
+        with Image.open(logo_buf).resize(LOGO_SIZE) as logo:  # type: ignore[reportUnknownMemberType]
+            img.paste(logo, (WIDTH - LOGO_WIDTH - PADDING, PADDING), logo)
+
+        with Writer(img) as w:
+            draw_text = partial(w.draw_text, font=FONT, fill=PAINT_WHITE)
+
+            draw_text(
+                truncate(track_name, LARGE),
+                CONTENT_X,
+                PADDING,
+                FONT_LARGE,
+            )
+
+            draw_text(
+                truncate(", ".join(artists), MEDIUM),
+                CONTENT_X,
+                PADDING + FONT_LARGE + 5,
+                FONT_MEDIUM,
+            )
+
+            # Singles have the title as the album, don't draw it if that is the case
+            if track_name != album_name:
+                draw_text(
+                    truncate(album_name, MEDIUM),
+                    CONTENT_X,
+                    PADDING + FONT_LARGE + FONT_MEDIUM + 10,
+                    FONT_MEDIUM,
+                )
+
+            draw_text(
+                f"{time_on} / {time_end}",
+                BAR_X,
+                BAR_TEXT_Y,
+                FONT_SMALL,
+            )
+
+        draw.rectangle(
+            (BAR_X, BAR_Y, BAR_LENGTH, BAR_Y + BAR_HEIGHT),
+            GRAY,
         )
 
+        played = BAR_X + (progress * BAR_WIDTH)
+        draw.rectangle(
+            (BAR_X, BAR_Y, int(played), BAR_Y + BAR_HEIGHT),
+            WHITE,
+        )
 
-def make_gradient(cover_copy: Image.Image, /) -> Image.Image:
-    blurred = cover_copy.resize(SIZE).filter(BLUR)  # type: ignore[reportUnknownMemberType]
+    buf = BytesIO()
+    img.save(buf, "PNG")
+    buf.seek(0)
 
+    return buf
+
+
+def make_gradient(cover: Image.Image, /) -> Image.Image:
     with Image.new("RGBA", SIZE) as g:
         draw = ImageDraw.Draw(g)
-        for y in range(SIZE[1]):
-            pos = ((0, y), (SIZE[0], y))
-            alpha = int(255 * (1 - y / SIZE[1]))
+        for y in range(HEIGHT):
+            pos = ((0, y), (WIDTH, y))
+            alpha = int(255 * (1 - y / HEIGHT))
             draw.line(pos, (0, 0, 0, alpha))
 
-        blurred = Image.alpha_composite(blurred.convert("RGBA"), g)
-        darkened = Image.new("RGBA", blurred.size, (0, 0, 0, 64))
-        result = Image.alpha_composite(blurred, darkened)
+    with cover.convert("RGBA").resize(SIZE).filter(BLUR) as blurred:  # type: ignore[reportUnknownMemberType]
+        gradient_applied = Image.alpha_composite(blurred, g)
 
-        blurred.close()
-        darkened.close()
-
-        return result
+    with Image.new("RGBA", SIZE, (0, 0, 0, 64)) as darkened:
+        return Image.alpha_composite(gradient_applied, darkened)
 
 
 @app_commands.command(name="spotify", description="Get Spotify info in a stylish embed")
