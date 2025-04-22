@@ -24,8 +24,12 @@ class Format(StrEnum):
 
 
 VALID_SIZES = (16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
-VALID_STATIC_FORMATS = frozenset({"webp", "png", "jpeg"})
-VALID_ASSET_FORMATS = VALID_STATIC_FORMATS | {"gif"}
+STATIC_FORMATS = frozenset({"webp", "png", "jpeg"})
+ALL_FORMATS = STATIC_FORMATS | {"gif"}
+
+SIZE_OPTIONS = [SelectOption(label=str(i)) for i in VALID_SIZES]
+STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
+ALL_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
 
 AssetData = tuple[str, int, int, Asset, Format, int]
 
@@ -106,8 +110,6 @@ class AssetView:
             )
         )
 
-        formats = VALID_ASSET_FORMATS if asset.is_animated() else VALID_STATIC_FORMATS
-        options = [SelectOption(label=f".{f}", value=f) for f in formats]
         c_id = "c:asset:" + b2048pack((
             "format",
             user_id,
@@ -117,7 +119,7 @@ class AssetView:
             asset_size,
         ))
         v.add_item(
-            DynSelect(placeholder="Change format", custom_id=c_id, options=options)
+            DynSelect(placeholder="Change format", custom_id=c_id, options=SIZE_OPTIONS)
         )
 
         options = [SelectOption(label=str(i)) for i in VALID_SIZES]
