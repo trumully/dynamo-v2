@@ -47,7 +47,7 @@ def _cache_transform(
     return (user.id,), kwds
 
 
-@lrutaskcache(cache_transform=_cache_transform)
+@lrutaskcache(ttl=300, cache_transform=_cache_transform)
 async def fetch_banner(
     user: discord.Member | discord.User, fetch: CoroFunc[[int], discord.User]
 ) -> discord.Asset | None:
