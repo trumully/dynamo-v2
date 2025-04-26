@@ -6,11 +6,14 @@
 
 ## Set up
 ### Prerequisites 
-* Python 3.13
-* uv
+* [Python 3.13](https://www.python.org/downloads/)
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) (optional)
+
+> [!TIP]
+> If you use `uv`, it will [download Python versions when they are required](https://docs.astral.sh/uv/guides/install-python/#automatic-python-downloads)
 
 ### Setup a venv
-You should use `uv` but anything works really.
+Assuming you are using `uv`
 ```sh
 uv sync
 ```
@@ -18,7 +21,7 @@ Requirements specified in `pyproject.toml` / `uv.lock`
 
 ## Using
 ### Store bot token
-You should set it in `.secrets.toml` at the root
+Assign in `.secrets.toml`
 ```toml
 # .secrets.toml
 token = "your token here"
