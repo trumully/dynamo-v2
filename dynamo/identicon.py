@@ -11,14 +11,12 @@ from io import BytesIO
 import discord
 from async_utils.task_cache import lrutaskcache
 from discord import app_commands
-from discord.app_commands import Transform
 from PIL import Image
 
 from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
-from .utils.transformers import CleanString
 from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
@@ -156,14 +154,16 @@ async def embed_identicon(
 )
 async def get_identicon(
     itx: Interaction,
-    value: Transform[str, CleanString] | None = None,
+    value: str | None = None,
     foreground: Color | None = None,
     background: Color = WHITE,
     algorithm: Algorithm = Algorithm.MD5,
-    ephemeral: bool = False,
+    ephemeral: bool = True,
 ) -> None:
     if value is None:
         value = str(time.monotonic_ns())
+    else:
+        value = "".join(c for c in value if c.isalnum())
 
     result = await embed_identicon(
         value,
