@@ -116,7 +116,8 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/trumully/dynamo-v2"
+homepage = "https://github.com/trumully/dynamo-v2#readme"
+source = "https://github.com/trumully/dynamo-v2"
 
 [tool.pyright]
 include = ["dynamo"]
