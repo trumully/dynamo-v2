@@ -15,7 +15,7 @@ from discord.abc import Snowflake
 
 from . import _typing_shim as t
 from ._typings import HasExports, RawSubmittable
-from .utils.files import platformdir, resolve_path_with_links
+from .utils.files import dirs, resolve_path_with_links
 from .utils.logic import to_json
 
 type Interaction = discord.Interaction[Dynamo]
@@ -175,7 +175,7 @@ class Dynamo(discord.AutoShardedClient):
             if exports.raw_component_submits is not None:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
-        path = platformdir.user_cache_path / "tree.hash"
+        path = dirs.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)
         tree_hash = await self.tree.get_hash()
         log.info("Command tree hash digest: %s", tree_hash.hex())

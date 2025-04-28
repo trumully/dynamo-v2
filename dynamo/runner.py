@@ -22,7 +22,7 @@ import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
 from .bot import HasExports
-from .utils.files import get_token, platformdir
+from .utils.files import dirs, get_token
 from .utils.logs import with_logging
 
 log = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 def _run_bot(
     loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]
 ) -> None:
-    db_path = str(platformdir.user_data_path / "dynamo.db")
+    db_path = str(dirs.user_data_path / "dynamo.db")
 
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
@@ -140,7 +140,7 @@ def _wrapped_run_bot(
 
 
 def ensure_schema() -> None:
-    db_path = platformdir.user_data_path / "dynamo.db"
+    db_path = dirs.user_data_path / "dynamo.db"
     conn = apsw.Connection(str(db_path))
 
     schema_path = (Path(__file__)).with_name("schema.sql")

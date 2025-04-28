@@ -12,7 +12,7 @@ import apsw.ext
 
 from dynamo import _typing_shim as t
 
-from .files import platformdir, resolve_path_with_links
+from .files import dirs, resolve_path_with_links
 
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
 
@@ -98,7 +98,7 @@ def with_logging() -> Generator[None]:
     q_handler.addFilter(KnownWarningFilter())
     stream_h = logging.StreamHandler()
 
-    log_path = resolve_path_with_links(platformdir.user_log_path, folder=True)
+    log_path = resolve_path_with_links(dirs.user_log_path, folder=True)
     log_loc = log_path / "dynamo.log"
     rotating_file_handler = logging.handlers.RotatingFileHandler(
         log_loc, maxBytes=2_000_000, backupCount=5

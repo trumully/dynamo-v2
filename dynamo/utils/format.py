@@ -3,10 +3,6 @@ from warnings import deprecated
 
 from dynamo import _typing_shim as t
 
-from .files import ROOT
-
-FONT_PATH = ROOT / "assets" / "fonts"
-
 
 # Uses PEP 702 to allow *only* Sequence[str]
 @t.overload

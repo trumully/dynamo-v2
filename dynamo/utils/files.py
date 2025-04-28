@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import platformdirs
+from platformdirs import PlatformDirs
 
-platformdir = platformdirs.PlatformDirs("dynamo", "trumully", roaming=False)
+dirs = PlatformDirs("dynamo", "trumully", roaming=False)
 
 
 def resolve_path_with_links(path: Path, folder: bool = False) -> Path:

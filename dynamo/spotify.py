@@ -16,7 +16,8 @@ from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
-from .utils.format import FONT_PATH, human_join
+from .utils.files import ROOT
+from .utils.format import human_join
 from .utils.wrappers import run_in_thread
 
 log = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ log = logging.getLogger(__name__)
 FONT_LARGE = 42
 FONT_MEDIUM = 28
 FONT_SMALL = 24
+
+FONT_PATH = ROOT / "assets" / "fonts"
 
 FontDB.LoadFromDir(str(FONT_PATH))
 FONT = FontDB.Query(" ".join(font.stem for font in FONT_PATH.rglob("*.ttf")))
