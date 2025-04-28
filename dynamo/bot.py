@@ -136,11 +136,10 @@ class Dynamo(discord.AutoShardedClient):
                         await rs.raw_submit(itx, data)
 
     async def is_blocked(self, user_id: int) -> bool:
-        blocked = self.block_cache.get(user_id, None)
-        if blocked is not None:
+        if (blocked := self.block_cache.get(user_id, None)) is not None:
             return blocked
 
-        b: bool = self.read_conn.execute(
+        is_blocked: bool = self.read_conn.execute(
             """
             SELECT EXISTS (
                 SELECT 1 FROM users
@@ -149,9 +148,8 @@ class Dynamo(discord.AutoShardedClient):
             """,
             (user_id,),
         ).get
-        assert b is not None, "SELECT EXISTS top level query"
-        self.block_cache[user_id] = b
-        return b
+        self.block_cache[user_id] = is_blocked
+        return is_blocked
 
     async def set_blocked(self, user_id: int, blocked: bool) -> None:
         self.block_cache[user_id] = blocked
@@ -169,12 +167,12 @@ class Dynamo(discord.AutoShardedClient):
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
-            if exports.commands:
+            if exports.commands is not None:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)
-            if exports.raw_modal_submits:
+            if exports.raw_modal_submits is not None:
                 self.raw_modal_submits.update(exports.raw_modal_submits)
-            if exports.raw_component_submits:
+            if exports.raw_component_submits is not None:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
         path = platformdir.user_cache_path / "tree.hash"
@@ -182,8 +180,11 @@ class Dynamo(discord.AutoShardedClient):
         tree_hash = await self.tree.get_hash()
         log.info("Command tree hash digest: %s", tree_hash.hex())
         with path.open("r+b") as fp:
-            data = fp.read()
-            if data != tree_hash:
+            if fp.read() != tree_hash:
                 await self.tree.sync()
                 fp.seek(0)
                 fp.write(tree_hash)
+
+    async def close(self) -> None:
+        await super().close()
+        await self.session.close()
