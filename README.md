@@ -36,7 +36,7 @@ uv run dynamo
 
 ### Check lint/format/typing
 > [!NOTE]
-> This requires `uv` to run and Node for Pyright. I recommend setting up Node with [fnm](https://github.com/Schniz/fnm)
+> This requires `uv` to run and Node for Pyright. I recommend setting up Node with [Volta](https://volta.sh/)
 
 ```sh
 uv run check.py

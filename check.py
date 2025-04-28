@@ -46,14 +46,13 @@ def run(*command: str | Path) -> None:
 
 def main() -> None:
     os.unsetenv("VIRTUAL_ENV")  # Prevents warnings when running uv
-    npx = "npx.cmd" if os.name == "nt" else "npx"
 
     if _IS_GITHUB_ACTIONS:
         os.environ["RUFF_OUTPUT_FORMAT"] = "github"
 
     run("uv", "run", "ruff", "check")
     run("uv", "run", "ruff", "format", "--diff")
-    run("uv", "run", npx, "--yes", "pyright@1.1.400")
+    run("uv", "run", "npx", "--yes", "pyright@1.1.400")
 
 
 if __name__ == "__main__":
