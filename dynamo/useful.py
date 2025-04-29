@@ -39,7 +39,7 @@ def get_cached_event(guild: discord.Guild, value: int) -> discord.ScheduledEvent
     description="Format a scheduled event with a hyperlink and list of attendees",
 )
 @app_commands.describe(event="The name of the event", ephemeral="Send privately")
-@app_commands.guild_only()
+@app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 async def interested(
     itx: Interaction,
     event: str,

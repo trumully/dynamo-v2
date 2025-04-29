@@ -219,9 +219,9 @@ def make_gradient(cover: Image.Image, /) -> Image.Image:
 
 
 @app_commands.command(name="spotify", description="Get Spotify info in a stylish embed")
-@app_commands.guild_only()
-@app_commands.checks.cooldown(1, 5.0, key=lambda i: i.user.id)
 @app_commands.describe(user="The user to check. You by default")
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: i.user.id)
+@app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 async def get_spotify(
     itx: Interaction, user: (discord.Member | discord.User) | None = None
 ) -> None:
