@@ -41,8 +41,7 @@ def get_cached_event(guild: discord.Guild, value: int) -> discord.ScheduledEvent
 @app_commands.describe(event="The name of the event", ephemeral="Send privately")
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 async def interested(itx: Interaction, event: str, ephemeral: bool = True) -> None:
-    if itx.guild is None:
-        raise app_commands.NoPrivateMessage from None
+    assert itx.guild is not None, "This is a guild only command"
 
     # The 'value' of the event from the selected choice is acutally the event ID in string
     # form. Treat it as such here.
@@ -59,8 +58,7 @@ async def interested(itx: Interaction, event: str, ephemeral: bool = True) -> No
 @interested.autocomplete("event")
 @lrucorocache(300, cache_transform=ac_cache_transform_guild)
 async def event_ac(itx: Interaction, current: str) -> list[Choice[str]]:
-    if itx.guild is None:
-        return []
+    assert itx.guild is not None, "Checked already"
     return [
         Choice(name=e.name, value=str(e.id))
         for e in itx.guild.scheduled_events[:25]

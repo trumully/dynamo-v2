@@ -225,12 +225,8 @@ def make_gradient(cover: Image.Image, /) -> Image.Image:
 async def get_spotify(
     itx: Interaction, user: (discord.Member | discord.User) | None = None
 ) -> None:
-    send = itx.response.send_message
-    error = partial(send, ephemeral=True)
-
-    if itx.guild is None:
-        await error("Please use this command in a guild.")
-        return
+    assert itx.guild is not None, "This is a guild only command"
+    error = partial(itx.response.send_message, ephemeral=True)
 
     user = itx.user if user is None else user
 
@@ -248,7 +244,7 @@ async def get_spotify(
 
     try:
         embed, file = await make_embed(user.mention, itx.client.session, activity)
-        await send(embed=embed, file=file)
+        await itx.response.send_message(embed=embed, file=file)
     except aiohttp.ClientError:
         log.warning(
             "Failed to fetch Spotify album cover for %s",
