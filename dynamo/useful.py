@@ -40,11 +40,7 @@ def get_cached_event(guild: discord.Guild, value: int) -> discord.ScheduledEvent
 )
 @app_commands.describe(event="The name of the event", ephemeral="Send privately")
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
-async def interested(
-    itx: Interaction,
-    event: str,
-    ephemeral: bool = True,
-) -> None:
+async def interested(itx: Interaction, event: str, ephemeral: bool = True) -> None:
     if itx.guild is None:
         raise app_commands.NoPrivateMessage from None
 
