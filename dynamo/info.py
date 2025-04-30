@@ -8,7 +8,7 @@ from discord import app_commands
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
-from ._typings import BotExports, CoroFunc, DynButton, DynSelect
+from ._typings import BotExports, DynButton, DynSelect
 from .bot import Interaction
 from .utils.logic import b2048pack, b2048unpack
 
@@ -32,24 +32,23 @@ VALID_SIZES = (16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
 STATIC_FORMATS = frozenset({"webp", "png", "jpeg"})
 ALL_FORMATS = STATIC_FORMATS | {"gif"}
 
-SIZE_OPTIONS = [SelectOption(label=str(i)) for i in VALID_SIZES]
-STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
-ALL_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
+SIZE_OPTS = [SelectOption(label=str(i)) for i in VALID_SIZES]
+STATIC_FORMAT_OPTS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
+ALL_FORMAT_OPTS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
 
 AssetData = tuple[str, int, int, Asset, Format, int]
 
 
 def _cache_transform(
-    args: tuple[discord.Member | discord.User, CoroFunc[[int], discord.User]],
-    kwds: dict[str, object],
+    args: tuple[Interaction, discord.Member | discord.User], kwds: dict[str, object]
 ) -> tuple[tuple[int], dict[str, object]]:
-    user, _fetch = args
+    _itx, user = args
     return (user.id,), kwds
 
 
 @lrutaskcache(ttl=300, cache_transform=_cache_transform)
 async def fetch_banner(
-    user: discord.Member | discord.User, fetch: CoroFunc[[int], discord.User]
+    itx: Interaction, user: discord.Member | discord.User
 ) -> discord.Asset | None:
     """Fetch a banner from a member or user.
 
@@ -60,31 +59,22 @@ async def fetch_banner(
         return user.banner
     if (display_banner := user.display_banner) is not None:
         return display_banner
-    return (await fetch(user.id)).banner
+    return (await itx.client.fetch_user(user.id)).banner
 
 
 class AssetView:
     @staticmethod
     def setup(
-        user_name: str,
-        asset_url: str,
-        asset_kind: Asset,
-        asset_format: Format,
-        asset_size: int,
+        user_name: str, asset_url: str, image_kind: Asset, file_type: Format, size: int
     ) -> discord.Embed:
-        e = discord.Embed(title=f"{user_name}'s {asset_kind.lower()}")
-        e.add_field(name="Format", value=asset_format)
-        e.add_field(name="Size", value=asset_size)
+        e = discord.Embed(title=f"{user_name}'s {image_kind.lower()}")
+        e.add_field(name="Format", value=file_type)
+        e.add_field(name="Size", value=size)
         e.set_image(url=asset_url)
         return e
 
     @classmethod
-    async def start(
-        cls,
-        itx: Interaction,
-        user_id: int,
-        target_id: int,
-    ) -> None:
+    async def start(cls, itx: Interaction, user_id: int, target_id: int) -> None:
         await cls.set_asset(itx, user_id, target_id, initial=True)
 
     @classmethod
@@ -93,9 +83,9 @@ class AssetView:
         itx: Interaction,
         user_id: int,
         target_id: int,
-        asset_kind: Asset = Asset.AVATAR,
-        asset_format: Format = Format.PNG,
-        asset_size: int = 256,
+        image_kind: Asset = Asset.AVATAR,
+        file_type: Format = Format.PNG,
+        size: int = 256,
         *,
         initial: bool = False,
         deferred: bool = False,
@@ -109,10 +99,10 @@ class AssetView:
         edit = itx.edit_original_response if deferred else itx.response.edit_message
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
-        banner = await fetch_banner(user, itx.client.fetch_user)
-        if asset_kind is Asset.AVATAR:
+        banner = await fetch_banner(itx, user)
+        if image_kind is Asset.AVATAR:
             asset = user.display_avatar
-        elif asset_kind is Asset.BANNER:
+        elif image_kind is Asset.BANNER:
             asset = banner
         else:
             asset = user.avatar_decoration
@@ -122,9 +112,9 @@ class AssetView:
 
         assert asset is not None, "Button is disabled when the asset does not exist"
         is_animated = asset.is_animated()
-        asset = asset.with_format(asset_format.value).with_size(asset_size)
+        asset = asset.with_format(file_type.value).with_size(size)
 
-        embed = cls.setup(user.name, asset.url, asset_kind, asset_format, asset_size)
+        embed = cls.setup(user.name, asset.url, image_kind, file_type, size)
 
         v = discord.ui.View()
 
@@ -134,7 +124,7 @@ class AssetView:
             target_id,
             Asset.AVATAR,
             Format.PNG,
-            asset_size,
+            size,
         ))
         v.add_item(DynButton(label="Avatar", custom_id=c_id))
 
@@ -144,7 +134,7 @@ class AssetView:
             target_id,
             Asset.BANNER,
             Format.PNG,
-            asset_size,
+            size,
         ))
         v.add_item(DynButton(label="Banner", custom_id=c_id, disabled=has_no_banner))
 
@@ -154,14 +144,14 @@ class AssetView:
             target_id,
             Asset.DECORATION,
             Format.PNG,
-            asset_size,
+            size,
         ))
         v.add_item(
             DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration)
         )
-        if is_animated and asset_kind is Asset.DECORATION and asset_format is Format.PNG:
+        if is_animated and image_kind is Asset.DECORATION and file_type is Format.PNG:
             embed.set_footer(
-                text="This decoration is an animated png (APNG). "
+                text="This decoration is an animated png (APNG)."
                 " Open the image outside of Discord to view it."
             )
 
@@ -171,14 +161,14 @@ class AssetView:
             "format",
             user_id,
             target_id,
-            asset_kind,
-            asset_format,
-            asset_size,
+            image_kind,
+            file_type,
+            size,
         ))
         opts = (
-            ALL_FORMAT_OPTIONS
-            if is_animated and asset_kind is not Asset.DECORATION
-            else STATIC_FORMAT_OPTIONS
+            ALL_FORMAT_OPTS
+            if is_animated and image_kind is not Asset.DECORATION
+            else STATIC_FORMAT_OPTS
         )
         v.add_item(DynSelect(placeholder="Change format", custom_id=c_id, options=opts))
 
@@ -186,13 +176,11 @@ class AssetView:
             "size",
             user_id,
             target_id,
-            asset_kind,
-            asset_format,
-            asset_size,
+            image_kind,
+            file_type,
+            size,
         ))
-        v.add_item(
-            DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS)
-        )
+        v.add_item(DynSelect(placeholder="Set size", custom_id=c_id, options=SIZE_OPTS))
 
         method = send if initial else edit
         await method(embed=embed, view=v)
@@ -204,13 +192,11 @@ class AssetView:
             return
 
         assert itx.data is not None
+        value: list[str] = itx.data.get("values", [])
 
         if op == "format":
-            value: list[str] = itx.data.get("values", [])
             fmt = Format(value[0]) if value else Format.PNG
-
-        if op == "size":
-            value: list[str] = itx.data.get("values", [])
+        elif op == "size":
             size = int(value[0]) if value else 256
 
         await itx.response.defer(ephemeral=True)
