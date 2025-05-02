@@ -47,16 +47,11 @@ _HASH_ALGO_MAP: Mapping[Algorithm, Callable[[bytes], _Hash]] = {
 # fmt: on
 
 
-class EmbedWithFile(t.TypedDict, total=False):
-    embed: discord.Embed
-    file: discord.File
-
-
 WHITE = Color.white()
 BLACK = Color.black()
 
 
-def generate_pattern(digest: str) -> list[list[bool]]:
+def generate_pattern(digest: str, /) -> list[list[bool]]:
     col3 = [int(x, 16) % 2 == 0 for x in digest[:5]]
     col2 = [int(x, 16) % 2 == 0 for x in digest[5:10]]
     col1 = [int(x, 16) % 2 == 0 for x in digest[10:15]]
@@ -69,7 +64,7 @@ def remap(value: str, v_min: int, v_max: int, d_min: int, d_max: int) -> float:
     return ((v - v_min) * (d_max - d_min)) / ((v_max - v_min) + d_min)
 
 
-def generate_color(digest: str) -> Color:
+def generate_color(digest: str, /) -> Color:
     """Calculated from the last 7 nibbles of a hash HHH|SS|LL.
 
     HHH (0..4095) remapped to a value between (0..360) = hue
@@ -84,8 +79,9 @@ def generate_color(digest: str) -> Color:
     return Color.from_hsl(hue, 65.0 - sat, 75.0 - lum)
 
 
+@lrutaskcache()
 @run_in_thread
-def identicon_to_img(digest: str, *, foreground: Color, background: Color) -> bytes:
+def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> bytes:
     to_fill = generate_pattern(digest)
 
     img = Image.new("RGB", (5, 5), background.to_rgb())
@@ -105,34 +101,19 @@ def identicon_to_img(digest: str, *, foreground: Color, background: Color) -> by
     return buff.getvalue()
 
 
-@lrutaskcache()
-async def create_identicon(
+async def embed_identicon(
+    itx: Interaction,
     value: str,
-    *,
     algorithm: Algorithm,
     foreground: Color | None,
     background: Color,
-) -> tuple[bytes, Color]:
+    ephemeral: bool = True,
+    /,
+) -> None:
     digest = _HASH_ALGO_MAP[algorithm](value.encode()).hexdigest()
-
     if foreground is None:
         foreground = generate_color(digest)
-
-    img = await identicon_to_img(digest, foreground=foreground, background=background)
-
-    return img, foreground
-
-
-async def embed_identicon(
-    value: str,
-    *,
-    algorithm: Algorithm,
-    foreground: Color | None,
-    background: Color,
-) -> EmbedWithFile:
-    img, foreground = await create_identicon(
-        value, algorithm=algorithm, foreground=foreground, background=background
-    )
+    img = await identicon_to_img(digest, foreground, background)
 
     file = discord.File(BytesIO(img), filename="identicon.png")
     description = f"Generated with **{algorithm.upper()}**"
@@ -140,7 +121,7 @@ async def embed_identicon(
     embed.add_field(name="Primary", value=str(foreground))
     embed.add_field(name="Background", value=str(background))
     embed.set_image(url="attachment://identicon.png")
-    return {"embed": embed, "file": file}
+    await itx.response.send_message(embed=embed, file=file, ephemeral=ephemeral)
 
 
 @app_commands.command(name="identicon", description="Generate an identicon from a hash")
@@ -165,26 +146,12 @@ async def get_identicon(
     else:
         value = "".join(c for c in value if c.isalnum())
 
-    result = await embed_identicon(
-        value,
-        algorithm=algorithm,
-        foreground=foreground,
-        background=background,
-    )
-    await itx.response.send_message(**result, ephemeral=ephemeral)
+    await embed_identicon(itx, value, algorithm, foreground, background, ephemeral)
 
 
 @app_commands.context_menu(name="Identicon")
-async def identicon_context_menu(
-    itx: Interaction, user: discord.Member | discord.User
-) -> None:
-    result = await embed_identicon(
-        str(user.id),
-        algorithm=Algorithm.MD5,
-        foreground=None,
-        background=WHITE,
-    )
-    await itx.response.send_message(**result, ephemeral=True)
+async def identicon_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
+    await embed_identicon(itx, str(user.id), Algorithm.MD5, None, WHITE)
 
 
-exports = BotExports(commands=[get_identicon, identicon_context_menu])
+exports = BotExports(commands=[get_identicon, identicon_menu])

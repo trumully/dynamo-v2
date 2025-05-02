@@ -78,8 +78,11 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
             await send(msg)
-
-        await super().on_error(itx, error)
+        elif isinstance(error, app_commands.TransformerError):
+            msg = f"`{error.value}` is not valid!"
+            await send(msg)
+        else:
+            await super().on_error(itx, error)
 
     async def _get_payload(
         self, *, guild: Snowflake | None = None
