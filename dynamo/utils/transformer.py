@@ -13,7 +13,7 @@ _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
 
 def ac_cache_transformer_guild(
-    args: tuple[type[Transformer[Dynamo]], Interaction, str], kwds: dict[str, object]
+    args: tuple[EventTransformer, Interaction, str], kwds: dict[str, object]
 ) -> tuple[tuple[int, str], dict[str, object]]:
     _transformer, itx, current = args
     return ac_cache_transform_guild((itx, current), kwds)
