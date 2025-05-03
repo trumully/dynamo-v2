@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import time
 from collections.abc import Callable, Mapping
 from enum import StrEnum, auto
@@ -17,9 +16,10 @@ from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
 from .utils.color import Color
+from .utils.logs import get_logger
 from .utils.wrappers import run_in_thread
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 hash_kwargs = {"usedforsecurity": False}

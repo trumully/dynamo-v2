@@ -4,9 +4,10 @@ import logging
 import logging.handlers
 import os
 import sys
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from queue import SimpleQueue
+from types import TracebackType
 
 import apsw.ext
 
@@ -15,6 +16,40 @@ from dynamo import _typing_shim as t
 from .files import dirs, resolve_path_with_links
 
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
+
+
+if t.TYPE_CHECKING:
+    BaseLogger = logging.Logger
+    type _SysExcInfoType = (
+        tuple[type[BaseException], BaseException, TracebackType | None]
+        | tuple[None, None, None]
+    )
+    type _ExcInfoType = bool | _SysExcInfoType | BaseException | None
+
+    class LoggerKwarg(t.TypedDict, total=False):
+        exc_info: _ExcInfoType
+        stack_info: bool
+        stacklevel: int
+        extra: Mapping[str, object] | None
+
+else:
+    BaseLogger = logging.getLoggerClass()
+
+TRACE_LEVEL = 5
+
+
+class Logger(BaseLogger):
+    def trace(self, msg: str, *args: object, **kwargs: t.Unpack[LoggerKwarg]) -> None:
+        if self.isEnabledFor(TRACE_LEVEL):
+            self.log(TRACE_LEVEL, msg, *args, **kwargs)
+
+
+def get_logger(name: str | None = None, /) -> Logger:
+    return t.cast(Logger, logging.getLogger(name))
+
+
+logging.setLoggerClass(Logger)
+logging.addLevelName(TRACE_LEVEL, "TRACE")
 
 
 class SupportsWrite(t.Protocol[_T_contra]):
@@ -49,6 +84,7 @@ _MSG_POSTFIX = "%(levelname)-8s\x1b[0m \x1b[35m%(name)s\x1b[0m %(message)s"
 
 
 LC = (
+    (TRACE_LEVEL, "\x1b[40;1m"),
     (logging.DEBUG, "\x1b[40;1m"),
     (logging.INFO, "\x1b[34;1m"),
     (logging.WARNING, "\x1b[33;1m"),
@@ -110,14 +146,16 @@ def with_logging() -> Generator[None]:
     rotating_file_handler.setFormatter(FMT)
 
     q_listener = logging.handlers.QueueListener(q, stream_h, rotating_file_handler)
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger = get_logger()
+    root_logger.setLevel(TRACE_LEVEL)
     root_logger.addHandler(q_handler)
 
-    logging.getLogger("discord").setLevel(logging.WARNING)
-    logging.getLogger("discord.client").setLevel(logging.INFO)
+    get_logger("discord").setLevel(logging.WARNING)
+    get_logger("discord.client").setLevel(logging.INFO)
+    get_logger("asyncio").setLevel(logging.INFO)
+    get_logger("PIL.PngImagePlugin").setLevel(logging.WARNING)
 
-    apsw_log = logging.getLogger("apsw_forwarded")
+    apsw_log = get_logger("apsw_forwarded")
     apsw.ext.log_sqlite(logger=apsw_log)
 
     try:

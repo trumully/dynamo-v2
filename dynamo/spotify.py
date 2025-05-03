@@ -1,6 +1,3 @@
-import datetime
-import logging
-from collections.abc import Sequence
 from functools import partial
 from io import BytesIO
 
@@ -18,9 +15,10 @@ from .bot import Interaction
 from .utils.color import Color
 from .utils.files import ROOT
 from .utils.format import human_join
+from .utils.logs import get_logger
 from .utils.wrappers import run_in_thread
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 FONT_LARGE = 42
 FONT_MEDIUM = 28
@@ -76,17 +74,16 @@ async def get_image(session: aiohttp.ClientSession, url: str, /) -> bytes:
 async def make_embed(
     mention: str, session: aiohttp.ClientSession, activity: discord.Spotify
 ) -> tuple[discord.Embed, discord.File]:
-    cover = await get_image(session, activity.album_cover_url)
-    logo = await get_image(session, LOGO_URL)
-    image = await draw(
-        activity.title,
-        activity.artists,
-        activity.album,
-        cover,
-        logo,
-        activity.duration,
-        activity.end,
-    )
+    async def try_get_image(url: str, /) -> bytes:
+        try:
+            return await get_image(session, url)
+        except aiohttp.ClientError:
+            log.exception("Failed to get image at %s", url)
+            raise
+
+    cover = await try_get_image(activity.album_cover_url)
+    logo = await try_get_image(LOGO_URL)
+    image = await draw(cover, logo, activity)
     track = f"**[{activity.title}](<{activity.track_url}>)**"
     artists = f"**{human_join(activity.artists)}**"
     description = f"{mention} is listening to {track} by {artists}"
@@ -121,25 +118,17 @@ def time_from_seconds(seconds: int) -> str:
 
 
 @run_in_thread
-def draw(
-    track_name: str,
-    artists: Sequence[str],
-    album_name: str,
-    album_cover: bytes,
-    logo_bytes: bytes,
-    duration: datetime.timedelta,
-    end: datetime.datetime,
-) -> BytesIO:
+def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> BytesIO:
     cover_buf = BytesIO(album_cover)
     cover_buf.seek(0)
     # unknown type because resize() uses numpy types under the hood
     cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
 
-    duration_seconds = duration.total_seconds()
-    progress = 1 - ((end - discord.utils.utcnow()).total_seconds() / duration_seconds)
+    seconds = activity.duration.total_seconds()
+    progress = 1 - ((activity.end - discord.utils.utcnow()).total_seconds() / seconds)
 
-    time_on = time_from_seconds(int(duration_seconds * progress))
-    time_end = time_from_seconds(int(duration_seconds))
+    time_on = time_from_seconds(int(seconds * progress))
+    time_end = time_from_seconds(int(seconds))
 
     with make_gradient(cover) as img:
         draw = ImageDraw.Draw(img)
@@ -155,23 +144,23 @@ def draw(
             draw_text = partial(w.draw_text, font=FONT, fill=PAINT_WHITE)
 
             draw_text(
-                truncate(track_name, LARGE),
+                truncate(activity.title, LARGE),
                 CONTENT_X,
                 PADDING,
                 FONT_LARGE,
             )
 
             draw_text(
-                truncate(", ".join(artists), MEDIUM),
+                truncate(", ".join(activity.artists), MEDIUM),
                 CONTENT_X,
                 PADDING + FONT_LARGE + 5,
                 FONT_MEDIUM,
             )
 
             # Singles have the title as the album, don't draw it if that is the case
-            if track_name != album_name:
+            if activity.title != activity.album:
                 draw_text(
-                    truncate(album_name, MEDIUM),
+                    truncate(activity.album, MEDIUM),
                     CONTENT_X,
                     PADDING + FONT_LARGE + FONT_MEDIUM + 10,
                     FONT_MEDIUM,
@@ -226,12 +215,12 @@ async def get_spotify(
     itx: Interaction, user: (discord.Member | discord.User) | None = None
 ) -> None:
     assert itx.guild is not None, "This is a guild only command"
-    error = partial(itx.response.send_message, ephemeral=True)
+    send = partial(itx.response.send_message, ephemeral=True)
 
     user = itx.user if user is None else user
 
     if (member := itx.guild.get_member(user.id)) is None:
-        await error("That member is not in this guild.")
+        await send("That member is not in this guild.")
         return
 
     activity: discord.Spotify
@@ -239,24 +228,18 @@ async def get_spotify(
         activity = next(a for a in member.activities if isinstance(a, discord.Spotify))
     except StopIteration:
         prefix = "You are" if user.id == itx.user.id else f"{user!s} is"
-        await error(f"{prefix} not listening to Spotify")
+        await send(f"{prefix} not listening to Spotify")
         return
 
     try:
         embed, file = await make_embed(user.mention, itx.client.session, activity)
-        await itx.response.send_message(embed=embed, file=file)
-    except aiohttp.ClientError:
-        log.warning(
-            "Failed to fetch Spotify album cover for %s",
-            activity.album_cover_url,
-            exc_info=True,
-        )
-        await error("Sorry, I couldn't fetch the album cover. Please try again.")
-    except Exception:
-        log.exception(
-            "Failed to generate Spotify card for user %s (%s)", user.display_name, user.id
-        )
-        await error("Sorry, something went wrong while creating the Spotify card image.")
+    except Exception as ex:
+        msg = "Something went wrong, please try again."
+        log.exception(msg, exc_info=ex)
+        await send(msg)
+        return
+
+    await itx.response.send_message(embed=embed, file=file)
 
 
 exports = BotExports(commands=[get_spotify])
