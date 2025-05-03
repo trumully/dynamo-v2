@@ -48,7 +48,6 @@ _HASH_ALGO_MAP: Mapping[Algorithm, Callable[[bytes], _Hash]] = {
 
 
 WHITE = Color.white()
-BLACK = Color.black()
 
 
 def generate_pattern(digest: str, /) -> list[list[bool]]:
@@ -101,7 +100,7 @@ def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> by
     return buff.getvalue()
 
 
-async def embed_identicon(
+async def send_identicon(
     itx: Interaction,
     value: str,
     algorithm: Algorithm,
@@ -114,6 +113,13 @@ async def embed_identicon(
     if foreground is None:
         foreground = generate_color(digest)
     img = await identicon_to_img(digest, foreground, background)
+    log.trace(
+        "%s generated (foregound: %s | background: %s) with algorithm %s",
+        value,
+        str(foreground),
+        str(background),
+        algorithm.upper(),
+    )
 
     file = discord.File(BytesIO(img), filename="identicon.png")
     description = f"Generated with **{algorithm.upper()}**"
@@ -146,12 +152,12 @@ async def get_identicon(
     else:
         value = "".join(c for c in value if c.isalnum())
 
-    await embed_identicon(itx, value, algorithm, foreground, background, ephemeral)
+    await send_identicon(itx, value, algorithm, foreground, background, ephemeral)
 
 
 @app_commands.context_menu(name="Identicon")
 async def identicon_menu(itx: Interaction, user: discord.Member | discord.User) -> None:
-    await embed_identicon(itx, str(user.id), Algorithm.MD5, None, WHITE)
+    await send_identicon(itx, str(user.id), Algorithm.MD5, None, WHITE)
 
 
 exports = BotExports(commands=[get_identicon, identicon_menu])

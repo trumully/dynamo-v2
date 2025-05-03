@@ -50,6 +50,12 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 
         ctx = app_commands.AppCommandContext
         contexts = ctx(dm_channel=True, guild=True, private_channel=True)
+        log.trace(
+            "Got %s with installs %s and contexts %s",
+            cls.__qualname__,
+            installs.to_array(),
+            contexts.to_array(),
+        )
         return cls(
             client,
             fallback_to_global=False,
@@ -60,7 +66,9 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
     @t.override
     async def interaction_check(self, itx: Interaction, /) -> bool:  # noqa: PLR6301
         if not await itx.client.is_blocked(itx.user.id):
+            log.trace("%s is not blocked", itx.user)
             return True
+        log.trace("%s is blocked", itx.user)
         resp = itx.response
         if itx.type is InteractionType.application_command:
             await resp.send_message("Blocked", ephemeral=True)
@@ -90,7 +98,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         commands = self._get_all_commands(guild=guild)
 
         translator = self.translator
-        if translator:
+        if translator is not None:
             payload = [
                 await cmd.get_translated_payload(self, translator) for cmd in commands
             ]
@@ -166,6 +174,7 @@ class Dynamo(discord.AutoShardedClient):
                 """,
                 (user_id, blocked),
             )
+        log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
@@ -184,6 +193,7 @@ class Dynamo(discord.AutoShardedClient):
         log.info("Command tree hash digest: %s", tree_hash.hex())
         with path.open("r+b") as fp:
             if fp.read() != tree_hash:
+                log.trace("New command tree hash digest, syncing tree")
                 await self.tree.sync()
                 fp.seek(0)
                 fp.write(tree_hash)

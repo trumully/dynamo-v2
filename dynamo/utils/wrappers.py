@@ -6,7 +6,11 @@ from functools import wraps
 
 from dynamo._typings import CoroFunc
 
+from .logs import get_logger
+
 _WRAP_ASSIGN = ("__module__", "__name__", "__qualname__", "__doc__")
+
+log = get_logger(__name__)
 
 
 def run_in_thread[**P, R](func: Callable[P, R]) -> CoroFunc[P, R]:
@@ -14,6 +18,7 @@ def run_in_thread[**P, R](func: Callable[P, R]) -> CoroFunc[P, R]:
 
     @wraps(func, assigned=_WRAP_ASSIGN)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        log.trace("Sending %r to thread", func)
         return await asyncio.to_thread(func, *args, **kwargs)
 
     return wrapper

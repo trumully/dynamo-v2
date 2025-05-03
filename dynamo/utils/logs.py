@@ -51,6 +51,7 @@ def get_logger(name: str | None = None, /) -> Logger:
 
 logging.setLoggerClass(Logger)
 logging.addLevelName(TRACE_LEVEL, "TRACE")
+logging.captureWarnings(True)
 
 
 class SupportsWrite(t.Protocol[_T_contra]):
@@ -138,7 +139,7 @@ def with_logging() -> Generator[None]:
     log_path = resolve_path_with_links(dirs.user_log_path, folder=True)
     log_loc = log_path / "dynamo.log"
     rotating_file_handler = logging.handlers.RotatingFileHandler(
-        log_loc, maxBytes=2_000_000, backupCount=5
+        log_loc, maxBytes=2_000_000, backupCount=5, encoding="utf-8"
     )
 
     stream_fmt = AnsiTermFormatter() if use_color_formatting(sys.stderr) else FMT

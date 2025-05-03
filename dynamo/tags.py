@@ -15,7 +15,10 @@ tag_group = Group(name="tag", description="Store and recall content")
 
 class TagModal(Modal):
     tag: TextInput[TagModal] = TextInput(
-        label="Tag", style=discord.TextStyle.paragraph, min_length=1, max_length=1000
+        label="Tag",
+        style=discord.TextStyle.paragraph,
+        min_length=1,
+        max_length=1000,
     )
 
     def __init__(
@@ -27,9 +30,8 @@ class TagModal(Modal):
         tag_name: str,
         author_id: int,
     ) -> None:
-        disc_safe = b2048pack((author_id, tag_name))
-        custom_id = f"m:tag:{disc_safe}"
-        super().__init__(title=title, timeout=10, custom_id=custom_id)
+        custom_id = "m:tag:" + b2048pack((author_id, tag_name))
+        super().__init__(title=title, timeout=timeout, custom_id=custom_id)
 
     @staticmethod
     async def raw_submit(itx: Interaction, data: str) -> None:
@@ -49,11 +51,11 @@ class TagModal(Modal):
             itx.client.conn.execute(
                 """
                 INSERT INTO user_tags (user_id, tag_name, content)
-                VALUES (:author_id, :tag_name, :content)
+                VALUES (?, ?, ?)
                 ON CONFLICT (user_id, tag_name)
                 DO UPDATE SET content=excluded.content;
                 """,
-                {"author_id": author_id, "tag_name": tag_name, "content": content},
+                (author_id, tag_name, content),
             )
         await itx.response.send_message(content="Tag created", ephemeral=True)
 
@@ -110,8 +112,10 @@ async def tag_ac(itx: Interaction, current: str) -> list[Choice[str]]:
         WHERE user_id = ? AND tag_name LIKE ? || '%' LIMIT 25
         """,
         (itx.user.id, current),
-    )
-    return [Choice(name=name, value=name) for (name,) in cursor]
+    ).get
+    if isinstance(cursor, str):
+        return [Choice(name=cursor, value=cursor)]
+    return [Choice(name=name, value=name) for name in cursor]
 
 
 exports = BotExports([tag_group], {"tag": TagModal})
