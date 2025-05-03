@@ -7,7 +7,6 @@ import sys
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from queue import SimpleQueue
-from types import TracebackType
 
 import apsw.ext
 
@@ -19,6 +18,8 @@ _T_contra = t.TypeVar("_T_contra", contravariant=True)
 
 
 if t.TYPE_CHECKING:
+    from types import TracebackType
+
     BaseLogger = logging.Logger
     type _SysExcInfoType = (
         tuple[type[BaseException], BaseException, TracebackType | None]
