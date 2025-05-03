@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import gc
-import logging
 import os
 import signal
 import socket
@@ -23,9 +22,9 @@ from async_utils.sig_service import SignalService, SpecialExit
 
 from .bot import HasExports
 from .utils.files import dirs, get_token
-from .utils.logs import with_logging
+from .utils.logs import get_logger, with_logging
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 def _run_bot(
@@ -94,13 +93,14 @@ def _run_bot(
     finally:
         fut.remove_done_callback(stop_when_done)
         if not client.is_closed():
-            # give the client a brief opportunity to close
+            log.trace("Client not closed, trying to close")
             _close_task = loop.create_task(client.close())
 
         loop.run_until_complete(asyncio.sleep(0))
         tasks = {t for t in asyncio.all_tasks(loop) if not t.done()}
         for t in tasks:
             t.cancel()
+            log.trace("Cancelled task %r", t)
         loop.run_until_complete(asyncio.sleep(0))
         loop.run_until_complete(loop.shutdown_asyncgens())
         loop.run_until_complete(loop.shutdown_default_executor())

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import re
 from functools import partial
 from hashlib import blake2b
@@ -17,11 +16,12 @@ from . import _typing_shim as t
 from ._typings import HasExports, RawSubmittable
 from .utils.files import dirs, resolve_path_with_links
 from .utils.logic import to_json
+from .utils.logs import get_logger
 
 type Interaction = discord.Interaction[Dynamo]
 
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 modal_regex = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
 component_regex = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DOTALL)

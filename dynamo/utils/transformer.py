@@ -9,7 +9,13 @@ from discord.app_commands import Choice, Transformer, TransformerError
 from dynamo._ac import ac_cache_transform_guild
 from dynamo.bot import Dynamo, Interaction
 
+from .logs import get_logger
+
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
+
+
+log = get_logger(__name__)
+evt_log = log.getChild("EventTransformer")
 
 
 def ac_cache_transformer_guild(
@@ -34,6 +40,7 @@ class EventTransformer(IDTransformer):
 
         # ID match
         if (match := self._get_id_match(value)) is not None:
+            evt_log.trace("Got ID match for %s", value)
             event_id = int(match.group(1))
             result = guild.get_scheduled_event(event_id)
         else:
@@ -44,12 +51,14 @@ class EventTransformer(IDTransformer):
             )
             # URL match
             if (match := re.match(pattern, value, flags=re.IGNORECASE)) is not None:
+                evt_log.trace("Got URL match for %s", value)
                 guild = itx.client.get_guild(int(match.group("guild_id")))
                 if guild is not None:
                     event_id = int(match.group("event_id"))
                     result = guild.get_scheduled_event(event_id)
             else:
                 # Lookup by name
+                evt_log.trace("Trying lookup by name with %s", value)
                 result = discord.utils.get(guild.scheduled_events, name=value)
 
         if result is None:

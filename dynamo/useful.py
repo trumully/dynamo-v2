@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from enum import StrEnum
 from functools import partial
 
@@ -13,9 +12,10 @@ from discord.enums import ButtonStyle
 from ._typings import BotExports, DynButton, DynSelect
 from .bot import Interaction
 from .utils.logic import b2048pack, b2048unpack
+from .utils.logs import get_logger
 from .utils.transformer import EventTransformer
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 class Asset(StrEnum):
@@ -49,7 +49,9 @@ def fetch_banner(user: discord.Member | discord.User) -> discord.Asset | None:
     https://discord.com/channels/336642139381301249/1342075560498823198/1342075560498823198
     """
     if isinstance(user, discord.Member) and user.display_banner is not None:
+        log.trace("Got member display banner for %s", user)
         return user.display_banner
+    log.trace("Got user banner for %s", user)
     return user.banner
 
 
