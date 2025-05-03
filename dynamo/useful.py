@@ -4,6 +4,7 @@ from enum import StrEnum
 from functools import partial
 
 import discord
+from async_utils.task_cache import lrutaskcache
 from discord import ScheduledEvent, app_commands
 from discord.app_commands import Transform
 from discord.components import SelectOption
@@ -42,17 +43,31 @@ ALL_FORMAT_OPTS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
 AssetData = tuple[str, int, int, Asset, Format, int]
 
 
-def fetch_banner(user: discord.Member | discord.User) -> discord.Asset | None:
+def _fetch_banner_transform(
+    args: tuple[Interaction, discord.Member | discord.User], kwds: dict[str, object]
+) -> tuple[tuple[int], dict[str, object]]:
+    _itx, user = args
+    return (user.id,), kwds
+
+
+@lrutaskcache(cache_transform=_fetch_banner_transform)
+async def fetch_banner(
+    itx: Interaction, user: discord.Member | discord.User
+) -> discord.Asset | None:
     """Fetch a banner from a member or user.
 
     Due to a bug in dpy, the fallback for `discord.Member.display_banner` is always `None`.
     https://discord.com/channels/336642139381301249/1342075560498823198/1342075560498823198
     """
-    if isinstance(user, discord.Member) and user.display_banner is not None:
-        log.trace("Got member display banner for %s", user)
-        return user.display_banner
-    log.trace("Got user banner for %s", user)
-    return user.banner
+
+    if not isinstance(user, discord.Member):
+        log.trace("Got banner from user %s", user)
+        return user.banner
+    if (display_banner := user.display_banner) is not None:
+        log.trace("Got display banner from user %s", user)
+        return display_banner
+    log.trace("Got banner from fetched user %s", user)
+    return (await itx.client.fetch_user(user.id)).banner
 
 
 class AssetView:
@@ -78,7 +93,7 @@ class AssetView:
         target_id: int,
         image_kind: Asset = Asset.AVATAR,
         file_type: Format = Format.PNG,
-        size: int = 256,
+        size: int = 512,
         *,
         initial: bool = False,
         deferred: bool = False,
@@ -86,13 +101,13 @@ class AssetView:
         if itx.guild is not None:
             user = itx.guild.get_member(target_id)
         else:
-            user = itx.client.get_user(target_id)
+            user = await itx.client.fetch_user(target_id)
 
         assert user is not None, "This view is opened from a member context."
         edit = itx.edit_original_response if deferred else itx.response.edit_message
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
-        banner = fetch_banner(user)
+        banner = await fetch_banner(itx, user)
         if image_kind is Asset.AVATAR:
             asset = user.display_avatar
         elif image_kind is Asset.BANNER:
@@ -142,11 +157,13 @@ class AssetView:
         v.add_item(
             DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration)
         )
-        if is_animated and image_kind is Asset.DECORATION and file_type is Format.PNG:
-            embed.set_footer(
-                text="This decoration is an animated png (APNG)."
-                " Open the image outside of Discord to view it."
-            )
+        if is_animated:
+            text = "This asset is animated. "
+            if image_kind is Asset.DECORATION:
+                text += "Set format to .png and open in browser to view."
+            else:
+                text += "Set format to .gif to view."
+            embed.set_footer(text=text)
 
         v.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
