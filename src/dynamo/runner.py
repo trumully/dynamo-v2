@@ -96,13 +96,31 @@ def _run_bot(
         if not client.is_closed():
             log.trace("Client not closed, trying to close")
             _close_task = loop.create_task(client.close())
+        loop.run_until_complete(asyncio.sleep(1e-3))
 
-        loop.run_until_complete(asyncio.sleep(0))
         tasks = {t for t in asyncio.all_tasks(loop) if not t.done()}
-        for t in tasks:
-            t.cancel()
-            log.trace("Cancelled task %r", t)
-        loop.run_until_complete(asyncio.sleep(0))
+
+        async def limited_finalization() -> None:
+            _done, pending = await asyncio.wait(tasks, timeout=0.1)
+            if not pending:
+                log.trace("Clean shutdown accomplished")
+                return
+
+            for task in tasks:
+                task.cancel()
+                name = task.get_name()
+                coro = task.get_coro()
+                log.trace("Cancelled task %s wrapping coro %r", name, coro)
+
+            _done, pending = await asyncio.wait(tasks, timeout=0.1)
+
+            for task in pending:
+                name = task.get_name()
+                coro = task.get_coro()
+                log.warning("Task %s wrapping coro %r did not exit properly", name, coro)
+
+        if tasks:
+            loop.run_until_complete(limited_finalization())
         loop.run_until_complete(loop.shutdown_asyncgens())
         loop.run_until_complete(loop.shutdown_default_executor())
 
@@ -123,10 +141,10 @@ def _run_bot(
         if not fut.cancelled():
             fut.result()
 
-    read_conn.close()
-    rw_conn.pragma("analysis_limit", 400)
-    rw_conn.pragma("optimize")
-    rw_conn.close()
+        read_conn.close()
+        rw_conn.pragma("analysis_limit", 400)
+        rw_conn.pragma("optimize")
+        rw_conn.close()
 
 
 def _wrapped_run_bot(
