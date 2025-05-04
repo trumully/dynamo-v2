@@ -34,7 +34,7 @@ MEDIUM = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_MEDIUM 
 LARGE = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_LARGE - 10)
 
 WHITE = Color.white().to_rgb()
-PAINT_WHITE = Paint(t.cast(TextColor, (*WHITE, 255)))
+PAINT_WHITE = Paint(t.cast("TextColor", (*WHITE, 255)))
 GRAY = (80, 80, 80)
 
 BLUR = ImageFilter.GaussianBlur(radius=30)
@@ -54,7 +54,9 @@ BAR_Y = HEIGHT - BAR_HEIGHT - PADDING - 30
 BAR_LENGTH = BAR_X + BAR_WIDTH
 BAR_TEXT_Y = HEIGHT - PADDING - 24
 
-LOGO_URL = "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png"
+LOGO_URL = (
+    "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png"
+)
 
 
 def url_cache_transform(
@@ -97,9 +99,7 @@ async def make_embed(
     return embed, file
 
 
-def truncate(
-    text: str, font: ImageFont.FreeTypeFont, max_length: int = CONTENT_MAX_WIDTH
-) -> str:
+def truncate(text: str, font: ImageFont.FreeTypeFont, max_length: int = CONTENT_MAX_WIDTH) -> str:
     result = ""
     for c in text:
         result += c
@@ -122,7 +122,7 @@ def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> By
     cover_buf = BytesIO(album_cover)
     cover_buf.seek(0)
     # unknown type because resize() uses numpy types under the hood
-    cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # type: ignore[reportUnknownMemberType]
+    cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # pyright: ignore[reportUnknownMemberType]
 
     seconds = activity.duration.total_seconds()
     progress = 1 - ((activity.end - discord.utils.utcnow()).total_seconds() / seconds)
@@ -137,52 +137,29 @@ def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> By
         logo_buf = BytesIO(logo_bytes)
         logo_buf.seek(0)
         # unknown type because resize() uses numpy types under the hood
-        with Image.open(logo_buf).resize(LOGO_SIZE) as logo:  # type: ignore[reportUnknownMemberType]
+        with Image.open(logo_buf).resize(LOGO_SIZE) as logo:  # pyright: ignore[reportUnknownMemberType]
             img.paste(logo, (WIDTH - LOGO_WIDTH - PADDING, PADDING), logo)
 
         with Writer(img) as w:
             draw_text = partial(w.draw_text, font=FONT, fill=PAINT_WHITE)
 
-            draw_text(
-                truncate(activity.title, LARGE),
-                CONTENT_X,
-                PADDING,
-                FONT_LARGE,
-            )
+            title = truncate(activity.title, LARGE)
+            draw_text(title, CONTENT_X, PADDING, FONT_LARGE)
 
-            draw_text(
-                truncate(", ".join(activity.artists), MEDIUM),
-                CONTENT_X,
-                PADDING + FONT_LARGE + 5,
-                FONT_MEDIUM,
-            )
+            artists = truncate(", ".join(activity.artists), MEDIUM)
+            draw_text(artists, CONTENT_X, PADDING + FONT_LARGE + 5, FONT_MEDIUM)
 
             # Singles have the title as the album, don't draw it if that is the case
             if activity.title != activity.album:
-                draw_text(
-                    truncate(activity.album, MEDIUM),
-                    CONTENT_X,
-                    PADDING + FONT_LARGE + FONT_MEDIUM + 10,
-                    FONT_MEDIUM,
-                )
+                album = truncate(activity.album, MEDIUM)
+                draw_text(album, CONTENT_X, PADDING + FONT_LARGE + FONT_MEDIUM + 10, FONT_MEDIUM)
 
-            draw_text(
-                f"{time_on} / {time_end}",
-                BAR_X,
-                BAR_TEXT_Y,
-                FONT_SMALL,
-            )
+            draw_text(f"{time_on} / {time_end}", BAR_X, BAR_TEXT_Y, FONT_SMALL)
 
-        draw.rectangle(
-            (BAR_X, BAR_Y, BAR_LENGTH, BAR_Y + BAR_HEIGHT),
-            GRAY,
-        )
+        draw.rectangle((BAR_X, BAR_Y, BAR_LENGTH, BAR_Y + BAR_HEIGHT), GRAY)
 
         played = BAR_X + (progress * BAR_WIDTH)
-        draw.rectangle(
-            (BAR_X, BAR_Y, int(played), BAR_Y + BAR_HEIGHT),
-            WHITE,
-        )
+        draw.rectangle((BAR_X, BAR_Y, int(played), BAR_Y + BAR_HEIGHT), WHITE)
 
     buf = BytesIO()
     img.save(buf, "PNG")
@@ -200,7 +177,7 @@ def make_gradient(cover: Image.Image, /) -> Image.Image:
             draw.line(pos, (0, 0, 0, alpha))
 
     # unknown type because resize() uses numpy types under the hood
-    with cover.convert("RGBA").resize(SIZE).filter(BLUR) as blurred:  # type: ignore[reportUnknownMemberType]
+    with cover.convert("RGBA").resize(SIZE).filter(BLUR) as blurred:  # pyright: ignore[reportUnknownMemberType]
         gradient_applied = Image.alpha_composite(blurred, g)
 
     with Image.new("RGBA", SIZE, (0, 0, 0, 64)) as darkened:

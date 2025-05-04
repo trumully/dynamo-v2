@@ -3,7 +3,7 @@ revision = 2
 requires-python = ">=3.13"
 
 [manifest]
-requirements = [{ name = "ruff", specifier = "~=0.11.4" }]
+requirements = [{ name = "ruff", specifier = "~=0.11.8" }]
 
 [[package]]
 name = "ruff"

@@ -31,9 +31,7 @@ class Color(DiscordColor):
         """
         r_mean = (self.r + other.r) >> 1
         r, g, b = self._squared_delta(other)
-        dist = math.sqrt(
-            (((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8)
-        )
+        dist = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
         return dist / MAX_PERCEIVED
 
     def _squared_delta(self, other: Color) -> Generator[int]:
@@ -57,7 +55,7 @@ class Color(DiscordColor):
 
     @classmethod
     async def transform(cls: type[t.Self], itx: Interaction, value: str, /) -> t.Self:
-        return t.cast(t.Self, cls.from_str(value))
+        return t.cast("t.Self", cls.from_str(value))
 
     @classmethod
     def from_hsl(cls: type[t.Self], hue: float, sat: float, lum: float) -> t.Self:
@@ -76,7 +74,7 @@ class Color(DiscordColor):
             color = lum - a * max(min((k - 3, 9 - k, 1)), -1)
             return f"{round(255 * color):x}"
 
-        return t.cast(t.Self, cls.from_str(f"#{f(0)}{f(8)}{f(4)}"))
+        return t.cast("t.Self", cls.from_str(f"#{f(0)}{f(8)}{f(4)}"))
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:

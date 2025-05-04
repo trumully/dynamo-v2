@@ -118,6 +118,4 @@ async def tag_ac(itx: Interaction, current: str) -> list[Choice[str]]:
     return [Choice(name=name, value=name) for name in cursor]
 
 
-exports: BotExports = BotExports(
-    commands=[tag_group], raw_modal_submits={"tag": TagModal}
-)
+exports: BotExports = BotExports(commands=[tag_group], raw_modal_submits={"tag": TagModal})

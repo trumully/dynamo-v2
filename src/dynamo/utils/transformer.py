@@ -66,7 +66,7 @@ class EventTransformer(IDTransformer):
         return result
 
     @lrucorocache(cache_transform=ac_cache_transformer_guild)
-    async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: PLR6301
+    async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: PLR6301
         assert itx.guild is not None, "Guild only transformer."
         events = itx.guild.scheduled_events[:25]
         return [Choice(name=e.name, value=str(e.id)) for e in events if current in e.name]
