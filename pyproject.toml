@@ -1,5 +1,4 @@
 [tool.ruff]
-src = ["dynamo"]
 line-length = 90
 preview = true
 
@@ -109,7 +108,7 @@ dependencies = [
     "discord-py[speed]~=2.6.0",
     "dynaconf~=3.3.0.dev0",
     "imagetext-py~=2.2.0",
-    "mikeshardmind-async-utils~=2025.4.25b0",
+    "mikeshardmind-async-utils~=2025.05.3b",
     "msgspec~=0.19.0",
     "pillow~=11.1.0",
     "platformdirs~=4.3.7",
@@ -120,7 +119,7 @@ homepage = "https://github.com/trumully/dynamo-v2#readme"
 source = "https://github.com/trumully/dynamo-v2"
 
 [tool.pyright]
-include = ["dynamo"]
+include = ["src"]
 typeCheckingMode = "strict"
 pythonPlatform = "All"
 reportCallInDefaultInitializer = "warning"

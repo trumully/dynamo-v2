@@ -10,9 +10,8 @@ from queue import SimpleQueue
 
 import apsw.ext
 
-from dynamo import _typing_shim as t
-
-from .files import dirs, resolve_path_with_links
+from . import _typing_shim as t
+from .utils import dirs, resolve_path_with_links
 
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
 
@@ -20,7 +19,7 @@ _T_contra = t.TypeVar("_T_contra", contravariant=True)
 if t.TYPE_CHECKING:
     from types import TracebackType
 
-    BaseLogger = logging.Logger
+    BaseLogger: type[logging.Logger] = logging.Logger
     type _SysExcInfoType = (
         tuple[type[BaseException], BaseException, TracebackType | None]
         | tuple[None, None, None]
@@ -34,7 +33,7 @@ if t.TYPE_CHECKING:
         extra: Mapping[str, object] | None
 
 else:
-    BaseLogger = logging.getLoggerClass()
+    BaseLogger: type[logging.Logger] = logging.getLoggerClass()
 
 TRACE_LEVEL = 5
 
@@ -51,7 +50,6 @@ def get_logger(name: str | None = None, /) -> Logger:
 
 logging.setLoggerClass(Logger)
 logging.addLevelName(TRACE_LEVEL, "TRACE")
-logging.captureWarnings(True)
 
 
 class SupportsWrite(t.Protocol[_T_contra]):
@@ -67,7 +65,7 @@ type Stream[T] = SupportsWrite[T] | SupportsWriteAndIsTTY[T]
 
 
 class KnownWarningFilter(logging.Filter):
-    known_messages = (
+    known_messages: tuple[str, ...] = (
         "Guilds intent seems to be disabled. This may cause state related issues.",
         "PyNaCl is not installed, voice will NOT be supported",
     )

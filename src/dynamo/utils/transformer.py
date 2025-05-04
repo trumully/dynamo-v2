@@ -8,14 +8,13 @@ from discord.app_commands import Choice, Transformer, TransformerError
 
 from dynamo._ac import ac_cache_transform_guild
 from dynamo.bot import Dynamo, Interaction
-
-from .logs import get_logger
+from dynamo.logs import Logger, get_logger
 
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
 
-log = get_logger(__name__)
-evt_log = log.getChild("EventTransformer")
+log: Logger = get_logger(__name__)
+evt_log: Logger = log.getChild("EventTransformer")
 
 
 def ac_cache_transformer_guild(

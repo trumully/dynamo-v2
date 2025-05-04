@@ -35,6 +35,7 @@ type RawSubmittable = RawSubmittableCls | RawSubmittableStatic
 
 class BotExports(t.NamedTuple):
     commands: list[AppCommandTypes] | None = None
+    dev_commands: list[AppCommandTypes] | None = None
     raw_component_submits: dict[str, type[RawSubmittable]] | None = None
     raw_modal_submits: dict[str, type[RawSubmittable]] | None = None
 

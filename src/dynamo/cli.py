@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from dynamo.runner import run_bot
+from .runner import run_bot
 
 
 def main() -> None:

@@ -12,11 +12,11 @@ from discord.enums import ButtonStyle
 
 from ._typings import BotExports, DynButton, DynSelect
 from .bot import Interaction
-from .utils.logic import b2048pack, b2048unpack
-from .utils.logs import get_logger
+from .logs import Logger, get_logger
+from .utils import b2048pack, b2048unpack
 from .utils.transformer import EventTransformer
 
-log = get_logger(__name__)
+log: Logger = get_logger(__name__)
 
 
 class Asset(StrEnum):
@@ -238,6 +238,6 @@ async def interested(
     await itx.response.send_message(content=content, ephemeral=ephemeral)
 
 
-exports = BotExports(
+exports: BotExports = BotExports(
     commands=[interested, get_assets], raw_component_submits={"asset": AssetView}
 )

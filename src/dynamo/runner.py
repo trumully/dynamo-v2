@@ -20,11 +20,12 @@ import apsw.bestpractice
 import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
-from .bot import HasExports
-from .utils.files import dirs, get_token
-from .utils.logs import get_logger, with_logging
+from ._config import get_token
+from ._typings import HasExports
+from .logs import Logger, get_logger, with_logging
+from .utils import dirs
 
-log = get_logger(__name__)
+log: Logger = get_logger(__name__)
 
 
 def _run_bot(
@@ -35,9 +36,9 @@ def _run_bot(
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
-    from . import identicon, spotify, tags, useful
+    from . import identicon, meta, spotify, tags, useful
 
-    initial_exts: list[HasExports] = [identicon, spotify, tags, useful]
+    initial_exts: list[HasExports] = [identicon, meta, spotify, tags, useful]
 
     from .bot import Dynamo
 
