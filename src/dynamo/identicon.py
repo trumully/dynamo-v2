@@ -15,14 +15,14 @@ from PIL import Image
 from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
-from .utils.color import Color
-from .utils.logs import get_logger
+from .color import Color
+from .logs import Logger, get_logger
 from .utils.wrappers import run_in_thread
 
-log = get_logger(__name__)
+log: Logger = get_logger(__name__)
 
 
-hash_kwargs = {"usedforsecurity": False}
+hash_kwargs: Mapping[str, object] = {"usedforsecurity": False}
 
 
 class Algorithm(StrEnum):
@@ -160,4 +160,4 @@ async def identicon_menu(itx: Interaction, user: discord.Member | discord.User) 
     await send_identicon(itx, str(user.id), Algorithm.MD5, None, WHITE)
 
 
-exports = BotExports(commands=[get_identicon, identicon_menu])
+exports: BotExports = BotExports(commands=[get_identicon, identicon_menu])

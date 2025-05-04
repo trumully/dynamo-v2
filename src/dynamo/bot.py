@@ -13,18 +13,20 @@ from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
 from . import _typing_shim as t
+from ._config import config
 from ._typings import HasExports, RawSubmittable
-from .utils.files import dirs, resolve_path_with_links
-from .utils.logic import to_json
-from .utils.logs import get_logger
+from .logs import Logger, get_logger
+from .utils import dirs, resolve_path_with_links, to_json
 
 type Interaction = discord.Interaction[Dynamo]
 
 
-log = get_logger(__name__)
+DEV_GUILD = discord.Object(config.dev_guild, type=discord.Guild)
 
-modal_regex = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
-component_regex = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DOTALL)
+log: Logger = get_logger(__name__)
+
+modal_regex: re.Pattern[str] = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
+component_regex: re.Pattern[str] = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DOTALL)
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
@@ -125,7 +127,7 @@ class Dynamo(discord.AutoShardedClient):
     ) -> None:
         intents = discord.Intents.none() if intents is None else intents
         super().__init__(*args, intents=intents, **kwargs)
-        self.tree = VersionedTree.from_dynamo(self)
+        self.tree: VersionedTree = VersionedTree.from_dynamo(self)
         self.raw_modal_submits: dict[str, RawSubmittable] = {}
         self.raw_component_submits: dict[str, RawSubmittable] = {}
         self.session = session
@@ -176,27 +178,39 @@ class Dynamo(discord.AutoShardedClient):
             )
         log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
+    async def versioned_sync(
+        self, filename: str, /, *, guild: Snowflake | None = None
+    ) -> None:
+        path = dirs.user_cache_path / f"{filename}.hash"
+        path = resolve_path_with_links(path)
+        tree_hash = await self.tree.get_hash(guild=guild)
+        log.info("Command %s hash digest: %s", filename, tree_hash.hex())
+        with path.open("r+b") as fp:
+            if fp.read() != tree_hash:
+                await self.tree.sync(guild=guild)
+                log.trace("Synced %s", filename)
+                fp.seek(0)
+                fp.write(tree_hash)
+
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
+            log.trace("Adding exports from %r", mod)
             if exports.commands is not None:
                 for command_obj in exports.commands:
+                    log.trace("Adding command %r", command_obj)
                     self.tree.add_command(command_obj)
+            if exports.dev_commands is not None:
+                for command_obj in exports.dev_commands:
+                    log.trace("Adding dev command %r", command_obj)
+                    self.tree.add_command(command_obj, guild=DEV_GUILD)
             if exports.raw_modal_submits is not None:
                 self.raw_modal_submits.update(exports.raw_modal_submits)
             if exports.raw_component_submits is not None:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
-        path = dirs.user_cache_path / "tree.hash"
-        path = resolve_path_with_links(path)
-        tree_hash = await self.tree.get_hash()
-        log.info("Command tree hash digest: %s", tree_hash.hex())
-        with path.open("r+b") as fp:
-            if fp.read() != tree_hash:
-                log.trace("New command tree hash digest, syncing tree")
-                await self.tree.sync()
-                fp.seek(0)
-                fp.write(tree_hash)
+        await self.versioned_sync("tree")
+        await self.versioned_sync("tree_dev", guild=DEV_GUILD)
 
     async def close(self) -> None:
         await super().close()

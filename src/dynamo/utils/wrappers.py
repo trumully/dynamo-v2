@@ -5,12 +5,11 @@ from collections.abc import Callable
 from functools import wraps
 
 from dynamo._typings import CoroFunc
-
-from .logs import get_logger
+from dynamo.logs import Logger, get_logger
 
 _WRAP_ASSIGN = ("__module__", "__name__", "__qualname__", "__doc__")
 
-log = get_logger(__name__)
+log: Logger = get_logger(__name__)
 
 
 def run_in_thread[**P, R](func: Callable[P, R]) -> CoroFunc[P, R]:

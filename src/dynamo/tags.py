@@ -8,9 +8,9 @@ from discord.ui import Modal, TextInput
 from ._ac import ac_cache_transform
 from ._typings import BotExports
 from .bot import Interaction
-from .utils.logic import b2048pack, b2048unpack
+from .utils import b2048pack, b2048unpack
 
-tag_group = Group(name="tag", description="Store and recall content")
+tag_group: Group = Group(name="tag", description="Store and recall content")
 
 
 class TagModal(Modal):
@@ -118,4 +118,6 @@ async def tag_ac(itx: Interaction, current: str) -> list[Choice[str]]:
     return [Choice(name=name, value=name) for name in cursor]
 
 
-exports = BotExports([tag_group], {"tag": TagModal})
+exports: BotExports = BotExports(
+    commands=[tag_group], raw_modal_submits={"tag": TagModal}
+)

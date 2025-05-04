@@ -12,13 +12,13 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from . import _typing_shim as t
 from ._typings import BotExports
 from .bot import Interaction
-from .utils.color import Color
-from .utils.files import ROOT
-from .utils.format import human_join
-from .utils.logs import get_logger
+from .color import Color
+from .logs import Logger, get_logger
+from .utils import ROOT
+from .utils.formatting import human_join
 from .utils.wrappers import run_in_thread
 
-log = get_logger(__name__)
+log: Logger = get_logger(__name__)
 
 FONT_LARGE = 42
 FONT_MEDIUM = 28
@@ -242,4 +242,4 @@ async def get_spotify(
     await itx.response.send_message(embed=embed, file=file)
 
 
-exports = BotExports(commands=[get_spotify])
+exports: BotExports = BotExports(commands=[get_spotify])
