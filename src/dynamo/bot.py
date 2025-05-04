@@ -30,9 +30,7 @@ component_regex: re.Pattern[str] = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DO
 
 
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
-    tree_hash = blake2b(
-        digest_size=32, person=b"tree", last_node=True, usedforsecurity=False
-    )
+    tree_hash = blake2b(digest_size=32, person=b"tree", last_node=True, usedforsecurity=False)
     command_hashes = [
         blake2b(
             to_json(c).encode(), person=b"command", last_node=False, usedforsecurity=False
@@ -66,7 +64,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         )
 
     @t.override
-    async def interaction_check(self, itx: Interaction, /) -> bool:  # noqa: PLR6301
+    async def interaction_check(self, itx: Interaction, /) -> bool:
         if not await itx.client.is_blocked(itx.user.id):
             log.trace("%s is not blocked", itx.user)
             return True
@@ -79,9 +77,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         return False
 
     @t.override
-    async def on_error(
-        self, itx: Interaction, error: app_commands.AppCommandError, /
-    ) -> None:
+    async def on_error(self, itx: Interaction, error: app_commands.AppCommandError, /) -> None:
         send = partial(itx.response.send_message, ephemeral=True)
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
@@ -94,16 +90,12 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         else:
             await super().on_error(itx, error)
 
-    async def _get_payload(
-        self, *, guild: Snowflake | None = None
-    ) -> list[dict[str, object]]:
+    async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
         commands = self._get_all_commands(guild=guild)
 
         translator = self.translator
         if translator is not None:
-            payload = [
-                await cmd.get_translated_payload(self, translator) for cmd in commands
-            ]
+            payload = [await cmd.get_translated_payload(self, translator) for cmd in commands]
         else:
             payload = [cmd.to_dict(self) for cmd in commands]
 
@@ -178,9 +170,7 @@ class Dynamo(discord.AutoShardedClient):
             )
         log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
-    async def versioned_sync(
-        self, filename: str, /, *, guild: Snowflake | None = None
-    ) -> None:
+    async def versioned_sync(self, filename: str, /, *, guild: Snowflake | None = None) -> None:
         path = dirs.user_cache_path / f"{filename}.hash"
         path = resolve_path_with_links(path)
         tree_hash = await self.tree.get_hash(guild=guild)

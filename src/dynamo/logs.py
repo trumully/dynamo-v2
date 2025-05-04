@@ -21,8 +21,7 @@ if t.TYPE_CHECKING:
 
     BaseLogger: type[logging.Logger] = logging.Logger
     type _SysExcInfoType = (
-        tuple[type[BaseException], BaseException, TracebackType | None]
-        | tuple[None, None, None]
+        tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     )
     type _ExcInfoType = bool | _SysExcInfoType | BaseException | None
 
@@ -45,7 +44,7 @@ class Logger(BaseLogger):
 
 
 def get_logger(name: str | None = None, /) -> Logger:
-    return t.cast(Logger, logging.getLogger(name))
+    return t.cast("Logger", logging.getLogger(name))
 
 
 logging.setLoggerClass(Logger)
@@ -84,7 +83,6 @@ _MSG_POSTFIX = "%(levelname)-8s\x1b[0m \x1b[35m%(name)s\x1b[0m %(message)s"
 
 
 LC = (
-    (TRACE_LEVEL, "\x1b[40;1m"),
     (logging.DEBUG, "\x1b[40;1m"),
     (logging.INFO, "\x1b[34;1m"),
     (logging.WARNING, "\x1b[33;1m"),
@@ -100,7 +98,7 @@ FORMATS = {
 
 class AnsiTermFormatter(logging.Formatter):
     @t.override
-    def format(self, record: logging.LogRecord) -> str:  # noqa: PLR6301
+    def format(self, record: logging.LogRecord) -> str:
         formatter = FORMATS.get(record.levelno)
         if formatter is None:
             formatter = FORMATS[logging.DEBUG]

@@ -89,7 +89,7 @@ def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> by
             if to_fill[j][i]:
                 img.putpixel((i, j), foreground.to_rgb())
 
-    img = img.resize((350, 350), Image.Resampling.NEAREST)  # type: ignore[reportUnknownMemberType]
+    img = img.resize((350, 350), Image.Resampling.NEAREST)  # pyright: ignore[reportUnknownMemberType]
     result = Image.new("RGB", (420, 420), background.to_rgb())
     result.paste(img, (35, 35))
 
@@ -147,10 +147,7 @@ async def get_identicon(
     algorithm: Algorithm = Algorithm.MD5,
     ephemeral: bool = True,
 ) -> None:
-    if value is None:
-        value = str(time.monotonic_ns())
-    else:
-        value = "".join(c for c in value if c.isalnum())
+    value = str(time.monotonic_ns()) if value is None else "".join(c for c in value if c.isalnum())
 
     await send_identicon(itx, value, algorithm, foreground, background, ephemeral)
 

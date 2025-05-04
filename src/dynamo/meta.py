@@ -8,9 +8,7 @@ from .bot import DEV_GUILD, Interaction
 @app_commands.command(name="setblocked", description="Block or unblock user from bot")
 @app_commands.guilds(DEV_GUILD)
 @app_commands.describe(user="The user to block or unblock")
-async def set_blocked(
-    itx: Interaction, user: discord.User | discord.Member, blocked: bool
-) -> None:
+async def set_blocked(itx: Interaction, user: discord.User | discord.Member, blocked: bool) -> None:
     blocked_str = "blocked" if blocked else "unblocked"
     await itx.response.defer(ephemeral=True)
     if blocked and await itx.client.is_blocked(user.id):

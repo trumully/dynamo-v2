@@ -28,9 +28,7 @@ from .utils import dirs
 log: Logger = get_logger(__name__)
 
 
-def _run_bot(
-    loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]
-) -> None:
+def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]) -> None:
     db_path = str(dirs.user_data_path / "dynamo.db")
 
     loop.set_task_factory(asyncio.eager_task_factory)

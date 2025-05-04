@@ -36,9 +36,9 @@ VALID_SIZES = (16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
 STATIC_FORMATS = frozenset({"webp", "png", "jpeg"})
 ALL_FORMATS = STATIC_FORMATS | {"gif"}
 
-SIZE_OPTS = [SelectOption(label=str(i)) for i in VALID_SIZES]
-STATIC_FORMAT_OPTS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
-ALL_FORMAT_OPTS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
+SIZE_OPTIONS = [SelectOption(label=str(i)) for i in VALID_SIZES]
+STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
+ALL_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
 
 AssetData = tuple[str, int, int, Asset, Format, int]
 
@@ -72,8 +72,16 @@ async def fetch_banner(
 
 class AssetView:
     @staticmethod
+    def custom_id(*to_pack: object) -> str:
+        return "c:asset:" + b2048pack(to_pack)
+
+    @staticmethod
     def setup(
-        user_name: str, asset_url: str, image_kind: Asset, file_type: Format, size: int
+        user_name: str,
+        asset_url: str,
+        image_kind: Asset,
+        file_type: Format,
+        size: int,
     ) -> discord.Embed:
         e = discord.Embed(title=f"{user_name}'s {image_kind.lower()}")
         e.add_field(name="Format", value=file_type)
@@ -108,6 +116,7 @@ class AssetView:
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
         banner = await fetch_banner(itx, user)
+
         if image_kind is Asset.AVATAR:
             asset = user.display_avatar
         elif image_kind is Asset.BANNER:
@@ -126,37 +135,14 @@ class AssetView:
 
         v = discord.ui.View()
 
-        c_id = "c:asset:" + b2048pack((
-            "avatar",
-            user_id,
-            target_id,
-            Asset.AVATAR,
-            Format.PNG,
-            size,
-        ))
+        c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, "png", size)
         v.add_item(DynButton(label="Avatar", custom_id=c_id))
 
-        c_id = "c:asset:" + b2048pack((
-            "banner",
-            user_id,
-            target_id,
-            Asset.BANNER,
-            Format.PNG,
-            size,
-        ))
+        c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, "png", size)
         v.add_item(DynButton(label="Banner", custom_id=c_id, disabled=has_no_banner))
 
-        c_id = "c:asset:" + b2048pack((
-            "deco",
-            user_id,
-            target_id,
-            Asset.DECORATION,
-            Format.PNG,
-            size,
-        ))
-        v.add_item(
-            DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration)
-        )
+        c_id = cls.custom_id("deco", user_id, target_id, Asset.DECORATION, "png", size)
+        v.add_item(DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration))
         if is_animated:
             text = "This asset is animated. "
             if image_kind is Asset.DECORATION:
@@ -167,30 +153,16 @@ class AssetView:
 
         v.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
-        c_id = "c:asset:" + b2048pack((
-            "format",
-            user_id,
-            target_id,
-            image_kind,
-            file_type,
-            size,
-        ))
+        c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
         opts = (
-            ALL_FORMAT_OPTS
+            ALL_FORMAT_OPTIONS
             if is_animated and image_kind is not Asset.DECORATION
-            else STATIC_FORMAT_OPTS
+            else STATIC_FORMAT_OPTIONS
         )
-        v.add_item(DynSelect(placeholder="Change format", custom_id=c_id, options=opts))
+        v.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=opts))
 
-        c_id = "c:asset:" + b2048pack((
-            "size",
-            user_id,
-            target_id,
-            image_kind,
-            file_type,
-            size,
-        ))
-        v.add_item(DynSelect(placeholder="Set size", custom_id=c_id, options=SIZE_OPTS))
+        c_id = cls.custom_id("size", user_id, target_id, image_kind, file_type, size)
+        v.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
 
         method = send if initial else edit
         await method(embed=embed, view=v)
@@ -202,12 +174,14 @@ class AssetView:
             return
 
         assert itx.data is not None
-        value: list[str] = itx.data.get("values", [])
 
-        if op == "format":
-            fmt = Format(value[0]) if value else Format.PNG
-        elif op == "size":
-            size = int(value[0]) if value else 256
+        values: list[str] = itx.data.get("values", [])
+        if values:
+            changed = values[0]
+            if op == "format":
+                fmt = Format(changed) if changed in ALL_FORMATS else Format.PNG
+            elif op == "size":
+                size = int(changed) if discord.utils.valid_icon_size(int(changed)) else 512
 
         await itx.response.defer(ephemeral=True)
         await cls.set_asset(itx, user_id, target_id, kind, fmt, size, deferred=True)
@@ -219,10 +193,7 @@ async def get_assets(itx: Interaction, user: discord.Member | discord.User) -> N
     await view.start(itx, itx.user.id, user.id)
 
 
-@app_commands.command(
-    name="interested",
-    description="Format a scheduled event with a hyperlink and list of attendees",
-)
+@app_commands.command(name="interested", description="Get event hyperlink with list of attendees")
 @app_commands.describe(event="The name of the event", ephemeral="Send privately")
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 async def interested(
