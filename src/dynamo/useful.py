@@ -7,6 +7,7 @@ import discord
 from async_utils.task_cache import lrutaskcache
 from discord import ScheduledEvent, app_commands
 from discord.app_commands import Transform
+from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
@@ -28,17 +29,16 @@ class Asset(StrEnum):
 class Format(StrEnum):
     WEBP = "webp"
     PNG = "png"
+    JPG = "jpg"
     JPEG = "jpeg"
     GIF = "gif"
 
 
 VALID_SIZES = (16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
-STATIC_FORMATS = frozenset({"webp", "png", "jpeg"})
-ALL_FORMATS = STATIC_FORMATS | {"gif"}
 
 SIZE_OPTIONS = [SelectOption(label=str(i)) for i in VALID_SIZES]
-STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in STATIC_FORMATS]
-ALL_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in ALL_FORMATS]
+STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in VALID_STATIC_FORMATS]
+ASSET_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in VALID_ASSET_FORMATS]
 
 AssetData = tuple[str, int, int, Asset, Format, int]
 
@@ -79,7 +79,7 @@ class AssetView:
     def setup(
         user_name: str,
         asset_url: str,
-        image_kind: Asset,
+        image_kind: str,
         file_type: Format,
         size: int,
     ) -> discord.Embed:
@@ -155,7 +155,7 @@ class AssetView:
 
         c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
         opts = (
-            ALL_FORMAT_OPTIONS
+            ASSET_FORMAT_OPTIONS
             if is_animated and image_kind is not Asset.DECORATION
             else STATIC_FORMAT_OPTIONS
         )
@@ -179,7 +179,7 @@ class AssetView:
         if values:
             changed = values[0]
             if op == "format":
-                fmt = Format(changed) if changed in ALL_FORMATS else Format.PNG
+                fmt = Format(changed) if changed in VALID_ASSET_FORMATS else Format.PNG
             elif op == "size":
                 size = int(changed) if discord.utils.valid_icon_size(int(changed)) else 512
 

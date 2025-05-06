@@ -23,14 +23,14 @@ from async_utils.sig_service import SignalService, SpecialExit
 from ._config import get_token
 from ._typings import HasExports
 from .logs import Logger, get_logger, with_logging
-from .utils import dirs
+from .utils import dirs, to_json
 
 log: Logger = get_logger(__name__)
 
+DB_PATH = str(dirs.user_data_path / "dynamo.db")
+
 
 def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]) -> None:
-    db_path = str(dirs.user_data_path / "dynamo.db")
-
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
@@ -45,15 +45,15 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     intents.members = True
     intents.presences = True
 
-    read_conn = apsw.Connection(db_path, flags=apsw.SQLITE_OPEN_READONLY)
-    rw_conn = apsw.Connection(db_path)
+    read_conn = apsw.Connection(DB_PATH, flags=apsw.SQLITE_OPEN_READONLY)
+    rw_conn = apsw.Connection(DB_PATH)
 
     connector = aiohttp.TCPConnector(
         family=socket.AddressFamily.AF_INET,
         ttl_dns_cache=60,
         loop=loop,
     )
-    session = aiohttp.ClientSession(connector=connector)
+    session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
 
     client = Dynamo(
         intents=intents,
@@ -157,8 +157,7 @@ def _wrapped_run_bot(
 
 
 def ensure_schema() -> None:
-    db_path = dirs.user_data_path / "dynamo.db"
-    conn = apsw.Connection(str(db_path))
+    conn = apsw.Connection(DB_PATH)
 
     schema_path = (Path(__file__)).with_name("schema.sql")
     with schema_path.open("r") as f:

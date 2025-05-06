@@ -6,12 +6,16 @@ import discord
 from async_utils.corofunc_cache import lrucorocache
 from discord.app_commands import Choice, Transformer, TransformerError
 
-from dynamo._ac import ac_cache_transform_guild
 from dynamo.bot import Dynamo, Interaction
 from dynamo.logs import Logger, get_logger
 
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
+_URL_PATTERN = (
+    r"https?://(?:(ptb|canary|www)\.)?discord\.com/events/"
+    r"(?P<guild_id>[0-9]{15,20})/"
+    r"(?P<event_id>[0-9]{15,20})$"
+)
 
 log: Logger = get_logger(__name__)
 evt_log: Logger = log.getChild("EventTransformer")
@@ -21,7 +25,8 @@ def ac_cache_transformer_guild(
     args: tuple[EventTransformer, Interaction, str], kwds: dict[str, object]
 ) -> tuple[tuple[int, str], dict[str, object]]:
     _transformer, itx, current = args
-    return ac_cache_transform_guild((itx, current), kwds)
+    assert itx.guild is not None, "Guild only"
+    return (itx.guild.id, current), kwds
 
 
 class IDTransformer(Transformer[Dynamo]):
@@ -42,23 +47,18 @@ class EventTransformer(IDTransformer):
             evt_log.trace("Got ID match for %s", value)
             event_id = int(match.group(1))
             result = guild.get_scheduled_event(event_id)
+
+        # URL match
+        elif (match := re.match(_URL_PATTERN, value, flags=re.IGNORECASE)) is not None:
+            evt_log.trace("Got URL match for %s", value)
+            guild = itx.client.get_guild(int(match.group("guild_id")))
+            if guild is not None:
+                event_id = int(match.group("event_id"))
+                result = guild.get_scheduled_event(event_id)
         else:
-            pattern = (
-                r"https?://(?:(ptb|canary|www)\.)?discord\.com/events/"
-                r"(?P<guild_id>[0-9]{15,20})/"
-                r"(?P<event_id>[0-9]{15,20})$"
-            )
-            # URL match
-            if (match := re.match(pattern, value, flags=re.IGNORECASE)) is not None:
-                evt_log.trace("Got URL match for %s", value)
-                guild = itx.client.get_guild(int(match.group("guild_id")))
-                if guild is not None:
-                    event_id = int(match.group("event_id"))
-                    result = guild.get_scheduled_event(event_id)
-            else:
-                # Lookup by name
-                evt_log.trace("Trying lookup by name with %s", value)
-                result = discord.utils.get(guild.scheduled_events, name=value)
+            # Lookup by name
+            evt_log.trace("Trying lookup by name with %s", value)
+            result = discord.utils.get(guild.scheduled_events, name=value)
 
         if result is None:
             raise TransformerError(value, self.type, self) from None
