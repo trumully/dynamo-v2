@@ -186,17 +186,15 @@ class Dynamo(discord.AutoShardedClient):
         for mod in self.initial_exts:
             exports = mod.exports
             log.trace("Adding exports from %r", mod)
-            if exports.commands is not None:
+            if exports.commands:
                 for command_obj in exports.commands:
-                    log.trace("Adding command %r", command_obj)
                     self.tree.add_command(command_obj)
-            if exports.dev_commands is not None:
+            if exports.dev_commands:
                 for command_obj in exports.dev_commands:
-                    log.trace("Adding dev command %r", command_obj)
                     self.tree.add_command(command_obj, guild=DEV_GUILD)
-            if exports.raw_modal_submits is not None:
+            if exports.raw_modal_submits:
                 self.raw_modal_submits.update(exports.raw_modal_submits)
-            if exports.raw_component_submits is not None:
+            if exports.raw_component_submits:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
         await self.versioned_sync("tree")
