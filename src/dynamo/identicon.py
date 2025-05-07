@@ -17,7 +17,7 @@ from ._typings import BotExports
 from .bot import Interaction
 from .color import Color
 from .logs import Logger, get_logger
-from .utils.wrappers import run_in_thread
+from .utils.wrappers import afunc
 
 log: Logger = get_logger(__name__)
 
@@ -79,7 +79,7 @@ def generate_color(digest: str, /) -> Color:
 
 
 @lrutaskcache()
-@run_in_thread
+@afunc
 def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> bytes:
     to_fill = generate_pattern(digest)
 

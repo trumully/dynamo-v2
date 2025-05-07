@@ -66,7 +66,6 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
     @t.override
     async def interaction_check(self, itx: Interaction, /) -> bool:
         if not await itx.client.is_blocked(itx.user.id):
-            log.trace("%s is not blocked", itx.user)
             return True
         log.trace("%s is blocked", itx.user)
         resp = itx.response
