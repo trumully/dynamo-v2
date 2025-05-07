@@ -16,7 +16,7 @@ from .color import Color
 from .logs import Logger, get_logger
 from .utils import ROOT
 from .utils.formatting import human_join
-from .utils.wrappers import run_in_thread
+from .utils.wrappers import afunc
 
 log: Logger = get_logger(__name__)
 
@@ -117,7 +117,7 @@ def time_from_seconds(seconds: int) -> str:
     return ":".join(result[::-1])
 
 
-@run_in_thread
+@afunc
 def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> BytesIO:
     cover_buf = BytesIO(album_cover)
     cover_buf.seek(0)
