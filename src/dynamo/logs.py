@@ -16,7 +16,8 @@ from .utils import dirs, resolve_path_with_links
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
 
 
-if t.TYPE_CHECKING:
+TYPE_CHECKING = False
+if TYPE_CHECKING:
     from types import TracebackType
 
     BaseLogger: type[logging.Logger] = logging.Logger

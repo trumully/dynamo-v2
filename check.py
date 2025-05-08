@@ -52,7 +52,7 @@ def main() -> None:
 
     run("uv", "run", "ruff", "check")
     run("uv", "run", "ruff", "format", "--diff")
-    run("uv", "run", "npx", "--yes", "pyright@1.1.400")
+    run("uv", "run", "basedpyright")
 
 
 if __name__ == "__main__":

@@ -125,6 +125,11 @@ dependencies = [
 homepage = "https://github.com/trumully/dynamo-v2#readme"
 source = "https://github.com/trumully/dynamo-v2"
 
+[dependency-groups]
+dev = [
+    "basedpyright>=1.29.1",
+]
+
 [tool.pyright]
 include = ["src"]
 exclude = ["**/__pycache__"]

@@ -26,11 +26,6 @@ jobs:
             pyproject.toml
             uv.lock
 
-      - name: Set up Node for Pyright
-        uses: volta-cli/action@efcca962fa9a572f967a62c1d4adfd7415fda97b # v4.2.1
-        with:
-          node-version: "22.15.0"  # lts as of 28/04/25
-
       - name: Check Types and Linting
         run: >
           uv run --frozen check.py
