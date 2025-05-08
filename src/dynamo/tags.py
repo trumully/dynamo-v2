@@ -6,7 +6,7 @@ from discord.app_commands import Choice, Group, Range, describe
 from discord.ui import Modal, TextInput
 
 from ._ac import ac_cache_transform
-from ._typings import BotExports
+from ._types import BotExports
 from .bot import Interaction
 from .utils import b2048pack, b2048unpack
 

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import discord
 from discord import app_commands
 
-from ._typings import BotExports
+from ._types import BotExports
 from .bot import DEV_GUILD, Interaction
 
 

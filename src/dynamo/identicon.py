@@ -12,8 +12,8 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image
 
-from . import _typing_shim as t
-from ._typings import BotExports
+from . import _typing as t
+from ._types import BotExports
 from .bot import Interaction
 from .color import Color
 from .logs import Logger, get_logger

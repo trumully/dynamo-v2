@@ -6,7 +6,7 @@ from base2048 import decode, encode
 from msgspec import json, msgpack
 from platformdirs import PlatformDirs
 
-from dynamo import _typing_shim as t
+from dynamo import _typing as t
 
 dirs: PlatformDirs = PlatformDirs("dynamo", "trumully", roaming=False)
 

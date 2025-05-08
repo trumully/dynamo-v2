@@ -6,6 +6,7 @@ import discord
 from async_utils.corofunc_cache import lrucorocache
 from discord.app_commands import Choice, Transformer, TransformerError
 
+from dynamo import _typing as t
 from dynamo.bot import Dynamo, Interaction
 from dynamo.logs import Logger, get_logger
 
@@ -36,6 +37,7 @@ class IDTransformer(Transformer[Dynamo]):
 
 
 class EventTransformer(IDTransformer):
+    @t.override
     async def transform(self, itx: Interaction, value: str, /) -> discord.ScheduledEvent:
         guild = itx.guild
         assert guild is not None, "Guild only transformer."
@@ -65,8 +67,9 @@ class EventTransformer(IDTransformer):
 
         return result
 
+    @t.override
     @lrucorocache(cache_transform=ac_cache_transformer_guild)
-    async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: PLR6301
+    async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # pyright: ignore[reportIncompatibleMethodOverride]
         assert itx.guild is not None, "Guild only transformer."
         events = itx.guild.scheduled_events[:25]
         return [Choice(name=e.name, value=str(e.id)) for e in events if current in e.name]

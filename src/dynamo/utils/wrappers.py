@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from functools import wraps
 from inspect import iscoroutinefunction
 
-from dynamo import _typing_shim as t
-from dynamo._typings import CoroFunc
+from dynamo import _typing as t
 from dynamo.logs import Logger, get_logger
 
 log: Logger = get_logger(__name__)
+
+
+type Coro[R] = Coroutine[None, None, R]
+type CoroFunc[**P, R] = Callable[P, Coro[R]]
+
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -35,18 +39,18 @@ def afunc[**P, R](
 ) -> CoroFunc[P, R] | CoroDeco:
     """A decorator for a synchronous function which turns it into an asynchronous function."""
 
-    def wrapper(coro: Callable[P, R], /) -> CoroFunc[P, R]:
-        if iscoroutinefunction(coro):
-            log.trace("%r is already a coroutine", coro)
-            return coro
+    def wrapper(func: Callable[P, R], /) -> CoroFunc[P, R]:
+        if iscoroutinefunction(func):
+            log.trace("%r is already a coroutine", func)
+            return func
 
-        @wraps(coro, assigned=_WRAP_ASSIGN)
+        @wraps(func, assigned=_WRAP_ASSIGN)
         async def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
             if fast:
-                log.trace("Running %r fast", coro)
-                return coro(*args, **kwargs)
-            log.trace("Sending %r to thread", coro)
-            return await asyncio.to_thread(coro, *args, **kwargs)
+                log.trace("Running %r fast", func)
+                return func(*args, **kwargs)
+            log.trace("Sending %r to thread", func)
+            return await asyncio.to_thread(func, *args, **kwargs)
 
         return wrapped
 

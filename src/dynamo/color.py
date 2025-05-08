@@ -5,7 +5,7 @@ from collections.abc import Generator
 
 from discord import Colour as DiscordColor
 
-from . import _typing_shim as t
+from . import _typing as t
 from .bot import Interaction
 
 MAX_PERCEIVED = 764.83

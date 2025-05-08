@@ -21,7 +21,7 @@ import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
 from ._config import get_token
-from ._typings import HasExports
+from ._types import HasExports
 from .logs import Logger, get_logger, with_logging
 from .utils import dirs, to_json
 
@@ -125,11 +125,13 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
         for task in tasks:
             try:
                 if (exc := task.exception()) is not None:
-                    loop.call_exception_handler({
-                        "message": "Unhandled exception in task during shutdown.",
-                        "exception": exc,
-                        "task": task,
-                    })
+                    loop.call_exception_handler(
+                        {
+                            "message": "Unhandled exception in task during shutdown.",
+                            "exception": exc,
+                            "task": task,
+                        }
+                    )
             except (asyncio.InvalidStateError, asyncio.CancelledError):
                 pass
 

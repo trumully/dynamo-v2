@@ -1,8 +1,10 @@
+# Explicitly omitting from __future__ import annotations
+
 import os
 
 from dynaconf.typed import Dynaconf, Options, Validator  # pyright: ignore[reportMissingTypeStubs]
 
-from . import _typing_shim as t
+from . import _typing as t
 
 # A discord bot token is a string that matches the following pattern:
 # >>> "[M|N|O]XXXXXXXXXXXXXXXXXXXXXXX[XX].XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX"
