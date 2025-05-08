@@ -11,7 +11,7 @@ from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
-from ._typings import BotExports, DynButton, DynSelect
+from ._types import BotExports, DynButton, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .utils import b2048pack, b2048unpack

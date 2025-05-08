@@ -1,6 +1,5 @@
 [tool.ruff]
 line-length = 100
-preview = true
 
 [tool.ruff.format]
 line-ending = "lf"
@@ -14,7 +13,7 @@ select = [
     "TRY", "UP", "YTT"
 ]
 
-typing-modules = ["dynamo._typing_shim"]
+typing-modules = ["dynamo._typing"]
 
 ignore = [
     "DOC201", # Not docing generic return types
@@ -80,13 +79,6 @@ convention = "google"
 "typing.runtime_checkable".msg = "Runtime checkable is fundamentally unsafe."
 "typing_extensions.runtime_checkable".msg = "Runtime checkable is fundamentally unsafe."
 
-# these don't work as deferred imports, intentionally, because type checkers are dumb
-# and require they be imported directly from typing to work, this breaks the deferred re-export.
-"typing.Final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
-"typing_extensions.Final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
-"typing.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
-"typing_extensions.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -95,20 +87,19 @@ build-backend = "hatchling.build"
 dynamo = "dynamo.cli:main"
 
 [project]
-name = "dynamo"
 version = "0.1.0"
+name = "dynamo"
 description = "\"A discord bot\""
 readme = "README.md"
+license = { text = "Unlicense" }
 requires-python = "~=3.13.0"
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: The Unlicense (Unlicense)",
     "Operating System :: OS Independent",
     "Typing :: Typed",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.13"
+    "Programming Language :: Python :: Implementation :: CPython",
 ]
-license = { text = "Unlicense" }
 dependencies = [
     "apsw~=3.49.1.0",
     "base2048~=0.1.3",
@@ -118,7 +109,7 @@ dependencies = [
     "mikeshardmind-async-utils~=2025.05.3b",
     "msgspec~=0.19.0",
     "pillow~=11.1.0",
-    "platformdirs~=4.3.7",
+    "platformdirs~=4.3.8",
 ]
 
 [project.urls]
@@ -127,104 +118,18 @@ source = "https://github.com/trumully/dynamo-v2"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.29.1",
+    "basedpyright~=1.29.1",
 ]
 
 [tool.pyright]
+useLibraryCodeForTypes = true
 include = ["src"]
 exclude = ["**/__pycache__"]
 typeCheckingMode = "strict"
-analyzeUnannotatedFunctions = true
-disableBytesTypePromotions = true
-strictParameterNoneValue = true
-enableTypeIgnoreComments = true
-enableReachabilityAnalysis = true
 strictListInference = true
 strictDictionaryInference = true
 strictSetInference = true
-deprecateTypingAliases = false
-enableExperimentalFeatures = false
-reportMissingTypeStubs = "error"
-reportMissingModuleSource = "warning"
-reportInvalidTypeForm = "error"
-reportMissingImports = "error"
-reportUndefinedVariable = "error"
-reportAssertAlwaysTrue = "none"
-reportInvalidStringEscapeSequence = "error"
-reportInvalidTypeVarUse = "error"
-reportSelfClsParameterName = "error"
-reportUnsupportedDunderAll = "error"
-reportUnusedExpression = "warning"
-reportWildcardImportFromLibrary = "error"
-reportAbstractUsage = "error"
-reportArgumentType = "error"
-reportAssertTypeFailure = "error"
-reportAssignmentType = "error"
-reportAttributeAccessIssue = "error"
-reportCallIssue = "error"
-reportGeneralTypeIssues = "error"
-reportInconsistentOverload = "error"
-reportIndexIssue = "error"
-reportInvalidTypeArguments = "error"
-reportNoOverloadImplementation = "error"
-reportOperatorIssue = "error"
-reportOptionalSubscript = "error"
-reportOptionalMemberAccess = "error"
-reportOptionalCall = "error"
-reportOptionalIterable = "error"
-reportOptionalContextManager = "error"
-reportOptionalOperand = "error"
-reportRedeclaration = "error"
-reportReturnType = "error"
-reportTypedDictNotRequiredAccess = "error"
-reportPrivateImportUsage = "warning"
-reportUnboundVariable = "error"
-reportUnhashable = "error"
-reportUnusedCoroutine = "warning"
-reportUnusedExcept = "error"
-reportFunctionMemberAccess = "error"
-reportIncompatibleMethodOverride = "error"
-reportIncompatibleVariableOverride = "error"
-reportOverlappingOverload = "error"
-reportPossiblyUnboundVariable = "error"
-reportConstantRedefinition = "error"
-reportDeprecated = "warning"
-reportDuplicateImport = "none"
-reportIncompleteStub = "error"
-reportInconsistentConstructor = "error"
-reportInvalidStubStatement = "error"
-reportMatchNotExhaustive = "error"
-reportMissingParameterType = "error"
-reportMissingTypeArgument = "error"
-reportPrivateUsage = "warning"
-reportTypeCommentUsage = "error"
-reportUnknownArgumentType = "error"
-reportUnknownLambdaType = "error"
-reportUnknownMemberType = "error"
-reportUnknownParameterType = "error"
-reportUnknownVariableType = "error"
-reportUnnecessaryCast = "warning"
-reportUnnecessaryComparison = "none"
-reportUnnecessaryContains = "none"
-reportUnnecessaryIsInstance = "none"
-reportUnusedClass = "warning"
-reportUnusedImport = "warning"
-reportUnusedFunction = "warning"
-reportUnusedVariable = "warning"
-reportUntypedBaseClass = "error"
-reportUntypedClassDecorator = "error"
-reportUntypedFunctionDecorator = "error"
-reportUntypedNamedTuple = "warning"
-reportCallInDefaultInitializer = "warning"
-reportImplicitOverride = "none"
-reportImplicitStringConcatenation = "warning"
-reportImportCycles = "error"
-reportMissingSuperCall = "none"
-reportPropertyTypeMismatch = "error"
-reportShadowedImports = "error"
-reportUninitializedInstanceVariable = "error"
-reportUnnecessaryTypeIgnoreComment = "warning"
-reportUnusedCallResult = "none"
+strictParameterNoneValue = true
 
 [tool.uv.sources]
 mikeshardmind-async-utils = { git = "https://github.com/mikeshardmind/async-utils" }

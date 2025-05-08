@@ -8,10 +8,8 @@
 from __future__ import annotations
 
 import os
-import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
 from subprocess import Popen
 
 _IS_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
@@ -30,7 +28,7 @@ def github_action(name: str) -> Generator[None]:
             print("::endgroup::", flush=True)
 
 
-def run(*command: str | Path) -> None:
+def run(*command: str) -> None:
     msg = f"Running {' '.join(str(c) for c in command)}"
     with github_action(msg):
         process = Popen(command)
@@ -41,7 +39,8 @@ def run(*command: str | Path) -> None:
             process.wait()
         finally:
             if process.returncode != 0:
-                sys.exit(process.returncode)
+                msg = f"Failed with code {process.returncode}"
+                raise RuntimeError(msg)
 
 
 def main() -> None:

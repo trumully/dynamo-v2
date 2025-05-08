@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial
 from io import BytesIO
 
@@ -9,8 +11,8 @@ from imagetext_py import Color as TextColor
 from imagetext_py import FontDB, Paint, Writer
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from . import _typing_shim as t
-from ._typings import BotExports
+from . import _typing as t
+from ._types import BotExports
 from .bot import Interaction
 from .color import Color
 from .logs import Logger, get_logger

@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
-
 from discord import Interaction as DInter
 from discord import ui
 from discord.app_commands import Command, ContextMenu, Group
 
-from . import _typing_shim as t
-
-type Coro[R] = Coroutine[None, None, R]
-type CoroFunc[**P, R] = Callable[P, Coro[R]]
+from . import _typing as t
 
 
 class RawSubmittableCls(t.Protocol):

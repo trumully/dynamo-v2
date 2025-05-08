@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from warnings import deprecated
 
-from dynamo import _typing_shim as t
+from dynamo import _typing as t
 
 
 # Uses PEP 702 to allow *only* Sequence[str]

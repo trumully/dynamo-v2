@@ -12,9 +12,9 @@ from async_utils.lru import LRU
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
-from . import _typing_shim as t
+from . import _typing as t
 from ._config import config
-from ._typings import HasExports, RawSubmittable
+from ._types import HasExports, RawSubmittable
 from .logs import Logger, get_logger
 from .utils import dirs, resolve_path_with_links, to_json
 
@@ -121,11 +121,11 @@ class Dynamo(discord.AutoShardedClient):
         self.tree: VersionedTree = VersionedTree.from_dynamo(self)
         self.raw_modal_submits: dict[str, RawSubmittable] = {}
         self.raw_component_submits: dict[str, RawSubmittable] = {}
-        self.session = session
-        self.conn = conn
-        self.read_conn = read_conn
+        self.session: aiohttp.ClientSession = session
+        self.conn: apsw.Connection = conn
+        self.read_conn: apsw.Connection = read_conn
         self.block_cache: LRU[int, bool] = LRU(512)
-        self.initial_exts = initial_exts
+        self.initial_exts: list[HasExports] = initial_exts
 
     async def on_interaction(self, itx: Interaction) -> None:
         for kind, regex, mapping in (
@@ -181,6 +181,7 @@ class Dynamo(discord.AutoShardedClient):
                 fp.seek(0)
                 fp.write(tree_hash)
 
+    @t.override
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
@@ -199,6 +200,7 @@ class Dynamo(discord.AutoShardedClient):
         await self.versioned_sync("tree")
         await self.versioned_sync("tree_dev", guild=DEV_GUILD)
 
+    @t.override
     async def close(self) -> None:
         await super().close()
         await self.session.close()

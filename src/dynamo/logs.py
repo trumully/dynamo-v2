@@ -10,7 +10,7 @@ from queue import SimpleQueue
 
 import apsw.ext
 
-from . import _typing_shim as t
+from . import _typing as t
 from .utils import dirs, resolve_path_with_links
 
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
