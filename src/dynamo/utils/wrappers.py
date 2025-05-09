@@ -41,15 +41,12 @@ def afunc[**P, R](
 
     def wrapper(func: Callable[P, R], /) -> CoroFunc[P, R]:
         if iscoroutinefunction(func):
-            log.trace("%r is already a coroutine", func)
             return func
 
         @wraps(func, assigned=_WRAP_ASSIGN)
         async def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
             if fast:
-                log.trace("Running %r fast", func)
                 return func(*args, **kwargs)
-            log.trace("Sending %r to thread", func)
             return await asyncio.to_thread(func, *args, **kwargs)
 
         return wrapped

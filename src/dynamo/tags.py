@@ -39,11 +39,11 @@ class TagModal(Modal):
 
         assert itx.data, "Checked by caller"
 
-        raw_ = itx.data.get("components", None)
-        if not raw_:
+        raw = itx.data.get("components", [])
+        if not raw:
             return
-        comp = raw_[0]
-        modal_components = comp.get("components")
+        comp = raw[0]
+        modal_components = comp.get("components", [])
         if not modal_components:
             return
         content = modal_components[0]["value"]
@@ -70,7 +70,7 @@ async def tag_create(itx: Interaction, name: Range[str, 1, 20]) -> None:
 @tag_group.command(name="get", description="Get content of a tag")
 @describe(name="The tag to get")
 async def tag_get(itx: Interaction, name: Range[str, 1, 20]) -> None:
-    content = itx.client.read_conn.execute(
+    content: str | None = itx.client.read_conn.execute(
         """
         SELECT content FROM user_tags
         WHERE user_id = ? AND tag_name = ? LIMIT 1;
@@ -89,7 +89,7 @@ async def tag_get(itx: Interaction, name: Range[str, 1, 20]) -> None:
 async def tag_del(itx: Interaction, name: Range[str, 1, 20]) -> None:
     await itx.response.defer(ephemeral=True)
     with itx.client.conn:
-        row = itx.client.conn.execute(
+        row: str | None = itx.client.conn.execute(
             """
             DELETE FROM user_tags
             WHERE user_id = ? AND tag_name = ?

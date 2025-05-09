@@ -1,7 +1,12 @@
 """
-Runner with graceful shutdown.
+This code is adapted from https://github.com/mikeshardmind/salamander-reloaded/blob/c2c104e78d62d676fe9c93eb70ff1b1c150f798c/src/salamander/runner.py
+Copyright and license is preserved in compliance of MPLv2
 
-https://github.com/mikeshardmind/salamander-reloaded/blob/637eef77c2c3f7b26a94639265ef70721e6f1729/src/salamander/runner.py#L50
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
 """
 
 from __future__ import annotations
@@ -34,26 +39,27 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
+    intents = discord.Intents.none()
+    intents.guilds = True
+    intents.members = True
+    intents.presences = True
+
+    connector = aiohttp.TCPConnector(
+        happy_eyeballs_delay=None,
+        family=socket.AddressFamily.AF_INET,
+        ttl_dns_cache=60,
+        loop=loop,
+    )
+    session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
+
     from . import identicon, meta, spotify, tags, useful
 
     initial_exts: list[HasExports] = [identicon, meta, spotify, tags, useful]
 
     from .bot import Dynamo
 
-    intents = discord.Intents.none()
-    intents.guilds = True
-    intents.members = True
-    intents.presences = True
-
     read_conn = apsw.Connection(DB_PATH, flags=apsw.SQLITE_OPEN_READONLY)
     rw_conn = apsw.Connection(DB_PATH)
-
-    connector = aiohttp.TCPConnector(
-        family=socket.AddressFamily.AF_INET,
-        ttl_dns_cache=60,
-        loop=loop,
-    )
-    session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
 
     client = Dynamo(
         intents=intents,
@@ -61,6 +67,7 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
         conn=rw_conn,
         read_conn=read_conn,
         initial_exts=initial_exts,
+        connector=connector,
     )
 
     async def bot_entry_point() -> None:
@@ -82,7 +89,7 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
         t_sig = asyncio.create_task(sig_handler())
         await asyncio.gather(t_bot, t_sig)
 
-    def stop_when_done(fut: asyncio.Future[None]) -> None:
+    def stop_when_done(_fut: asyncio.Future[None]) -> None:
         loop.stop()
 
     fut = asyncio.ensure_future(entry_point(), loop=loop)
@@ -176,6 +183,8 @@ def ensure_schema() -> None:
             s.append(n)
         statement = "\n".join(s)
         list(conn.execute(statement))
+
+    conn.close()
 
 
 def run_bot() -> None:

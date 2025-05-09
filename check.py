@@ -1,8 +1,6 @@
 # /// script
 # requires-python = ">=3.13"
-# dependencies = [
-#     "ruff~=0.11.8",
-# ]
+# dependencies = []
 # ///
 
 from __future__ import annotations
@@ -49,9 +47,9 @@ def main() -> None:
     if _IS_GITHUB_ACTIONS:
         os.environ["RUFF_OUTPUT_FORMAT"] = "github"
 
-    run("uv", "run", "ruff", "check")
-    run("uv", "run", "ruff", "format", "--diff")
-    run("uv", "run", "basedpyright")
+    run("uvx", "ruff", "check")
+    run("uvx", "ruff", "format", "--diff")
+    run("uvx", "basedpyright")
 
 
 if __name__ == "__main__":

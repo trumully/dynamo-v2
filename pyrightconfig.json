@@ -1,0 +1,10 @@
+{
+    "include": ["src"],
+    "exclude": ["**/__pycache__"],
+    "typeCheckingMode": "strict",
+    "strictListInference": true,
+    "strictDictionaryInference": true,
+    "strictSetInference": true,
+    "strictParameterNoneValue": true,
+    "useLibraryCodeForTypes": true,
+}
