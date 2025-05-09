@@ -20,11 +20,10 @@ uv sync
 Requirements specified in `pyproject.toml` / `uv.lock`
 
 ## Using
-### Store bot token
-Assign in `.secrets.toml`
+### .secrets.toml
 ```toml
-# .secrets.toml
 token = "your token here"
+dev_guild = 12345  # your own guild here
 ```
 Alternatively, you can set the environment variable `DYNAMO_TOKEN`
 
@@ -36,7 +35,7 @@ uv run dynamo
 
 ### Check lint/format/typing
 > [!NOTE]
-> This requires `uv` to run and Node for Pyright. I recommend setting up Node with [Volta](https://volta.sh/)
+> This requires `uv` to run.
 
 ```sh
 uv run check.py

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import datetime
 import re
-from functools import partial
 from hashlib import blake2b
 
 import aiohttp
 import apsw
 import discord
 from async_utils.lru import LRU
+from async_utils.task_cache import taskcache
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
@@ -77,15 +77,14 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 
     @t.override
     async def on_error(self, itx: Interaction, error: app_commands.AppCommandError, /) -> None:
-        send = partial(itx.response.send_message, ephemeral=True)
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
-            await send(msg)
+            await itx.response.send_message(msg, ephemeral=True)
         elif isinstance(error, app_commands.TransformerError):
             msg = f"`{error.value}` is not valid!"
-            await send(msg)
+            await itx.response.send_message(msg, ephemeral=True)
         else:
             await super().on_error(itx, error)
 
@@ -126,6 +125,13 @@ class Dynamo(discord.AutoShardedClient):
         self.read_conn: apsw.Connection = read_conn
         self.block_cache: LRU[int, bool] = LRU(512)
         self.initial_exts: list[HasExports] = initial_exts
+
+    @taskcache(3600)
+    async def cachefetch_priority_ids(self) -> set[int]:
+        app_info = await self.application_info()
+        owner = app_info.owner.id
+        team = app_info.team
+        return {owner, *(t.id for t in team.members)} if team else {owner}
 
     async def on_interaction(self, itx: Interaction) -> None:
         for kind, regex, mapping in (
@@ -185,7 +191,7 @@ class Dynamo(discord.AutoShardedClient):
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
-            log.trace("Adding exports from %r", mod)
+            log.trace("Adding exports from %s", mod.__name__)
             if exports.commands:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)

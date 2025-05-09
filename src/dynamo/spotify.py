@@ -75,12 +75,10 @@ async def get_image(session: aiohttp.ClientSession, url: str, /) -> bytes:
         return await r.read()
 
 
-async def make_embed(
-    mention: str, session: aiohttp.ClientSession, activity: discord.Spotify
-) -> tuple[discord.Embed, discord.File]:
+async def send_spotify_embed(itx: Interaction, mention: str, activity: discord.Spotify) -> None:
     async def try_get_image(url: str, /) -> bytes:
         try:
-            return await get_image(session, url)
+            return await get_image(itx.client.session, url)
         except aiohttp.ClientError:
             log.exception("Failed to get image at %s", url)
             raise
@@ -98,7 +96,7 @@ async def make_embed(
     )
     file = discord.File(image, "spotify.png")
     embed.set_image(url="attachment://spotify.png")
-    return embed, file
+    await itx.response.send_message(embed=embed, file=file)
 
 
 def truncate(text: str, font: ImageFont.FreeTypeFont, max_length: int = CONTENT_MAX_WIDTH) -> str:
@@ -194,12 +192,11 @@ async def get_spotify(
     itx: Interaction, user: (discord.Member | discord.User) | None = None
 ) -> None:
     assert itx.guild is not None, "This is a guild only command"
-    send = partial(itx.response.send_message, ephemeral=True)
 
     user = itx.user if user is None else user
 
     if (member := itx.guild.get_member(user.id)) is None:
-        await send("That member is not in this guild.")
+        await itx.response.send_message("That member is not in this guild.", ephemeral=True)
         return
 
     activity: discord.Spotify
@@ -207,18 +204,15 @@ async def get_spotify(
         activity = next(a for a in member.activities if isinstance(a, discord.Spotify))
     except StopIteration:
         prefix = "You are" if user.id == itx.user.id else f"{user!s} is"
-        await send(f"{prefix} not listening to Spotify")
+        await itx.response.send_message(f"{prefix} not listening to Spotify", ephemeral=True)
         return
 
     try:
-        embed, file = await make_embed(user.mention, itx.client.session, activity)
+        await send_spotify_embed(itx, user.mention, activity)
     except Exception as ex:
         msg = "Something went wrong, please try again."
         log.exception(msg, exc_info=ex)
-        await send(msg)
-        return
-
-    await itx.response.send_message(embed=embed, file=file)
+        await itx.response.send_message(msg, ephemeral=True)
 
 
 exports: BotExports = BotExports(commands=[get_spotify])
