@@ -39,4 +39,7 @@ uv run dynamo
 
 ```sh
 uv run check.py
+
+# Fix format/lint
+uv run check.py --fix
 ```
