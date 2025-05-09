@@ -1,10 +1,14 @@
 # /// script
 # requires-python = ">=3.13"
-# dependencies = []
+# dependencies = [
+#     "ruff~=0.11.8",
+#     "basedpyright~=1.29.1",
+# ]
 # ///
 
 from __future__ import annotations
 
+import argparse
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -42,14 +46,27 @@ def run(*command: str) -> None:
 
 
 def main() -> None:
+    os.umask(0o077)
+
     os.unsetenv("VIRTUAL_ENV")  # Prevents warnings when running uv
 
     if _IS_GITHUB_ACTIONS:
         os.environ["RUFF_OUTPUT_FORMAT"] = "github"
 
-    run("uvx", "ruff", "check")
-    run("uvx", "ruff", "format", "--diff")
-    run("uvx", "basedpyright")
+    parser = argparse.ArgumentParser(description="Check format, types, linting")
+    excl = parser.add_mutually_exclusive_group()
+    excl.add_argument(
+        "--fix",
+        action="store_true",
+        default=False,
+        help="fix any reported errors where possible",
+        dest="fix",
+    )
+    args = parser.parse_args()
+
+    run("uv", "run", "ruff", "check", "--fix" if args.fix else "")
+    run("uv", "run", "ruff", "format", "--diff" if not args.fix else "src/dynamo/")
+    run("uv", "run", "basedpyright", "--warnings")
 
 
 if __name__ == "__main__":
