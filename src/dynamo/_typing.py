@@ -1,5 +1,5 @@
 # This code is adapted from https://github.com/mikeshardmind/async-utils/blob/7bf094f063a727901539598811d3fd907ccf5342/src/async_utils/_typings.py
-# Copyright and license is preserved in compliance of  Apache License 2.0
+# Copyright and license is preserved in compliance with  Apache License 2.0
 #
 #   Copyright 2020-present Michael Hall
 #

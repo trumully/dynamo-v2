@@ -62,10 +62,28 @@ def main() -> None:
         help="fix any reported errors where possible",
         dest="fix",
     )
+    excl.add_argument(
+        "--verify",
+        action="store_true",
+        default=False,
+        help="verify typing of the module",
+        dest="verify",
+    )
     args = parser.parse_args()
 
-    run("uv", "run", "ruff", "check", "--fix" if args.fix else "")
-    run("uv", "run", "ruff", "format", "--diff" if not args.fix else "src/dynamo/")
+    if args.verify:
+        run("uv", "run", "basedpyright", "--verifytypes", "dynamo", "--ignoreexternal")
+        return
+
+    ruff_check = ["uv", "run", "ruff", "check"]
+    if args.fix:
+        ruff_check.append("--fix")
+    run(*ruff_check)
+
+    ruff_format = ["uv", "run", "ruff", "format"]
+    ruff_format.append("." if args.fix else "--diff")
+    run(*ruff_format)
+
     run("uv", "run", "basedpyright", "--warnings")
 
 

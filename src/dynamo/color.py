@@ -30,18 +30,18 @@ class Color(DiscordColor):
             https://www.compuphase.com/cmetric.htm
         """
         r_mean = (self.r + other.r) >> 1
-        r, g, b = self._squared_delta(other)
+        r, g, b = self.squared_delta(other)
         dist = math.sqrt((((512 * r_mean) * r) >> 8) + 4 * g + (((767 - r_mean) * b) >> 8))
         return dist / MAX_PERCEIVED
 
-    def _squared_delta(self, other: Color) -> Generator[int]:
+    def squared_delta(self, other: Color) -> Generator[int]:
         delta_r = self.r - other.r
         delta_g = self.g - other.g
         delta_b = self.b - other.b
         return (int(math.pow(x, 2)) for x in (delta_r, delta_g, delta_b))
 
     def euclidean_distance_from(self, other: Color) -> float:
-        return (math.sqrt(sum(self._squared_delta(other)))) / MAX_EUCLEDIAN
+        return (math.sqrt(sum(self.squared_delta(other)))) / MAX_EUCLEDIAN
 
     def is_similar_to(self, other: Color) -> bool:
         p_dist = self.perceived_distance_from(other)

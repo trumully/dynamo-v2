@@ -4,7 +4,8 @@ import re
 
 import discord
 from async_utils.corofunc_cache import lrucorocache
-from discord.app_commands import Choice, Transformer, TransformerError
+from discord import app_commands
+from discord.app_commands import Choice
 
 from dynamo import _typing as t
 from dynamo.bot import Dynamo, Interaction
@@ -22,21 +23,17 @@ log: Logger = get_logger(__name__)
 evt_log: Logger = log.getChild("EventTransformer")
 
 
-def ac_cache_transformer_guild(
-    args: tuple[EventTransformer, Interaction, str], kwds: dict[str, object]
-) -> tuple[tuple[int, str], dict[str, object]]:
-    _transformer, itx, current = args
-    assert itx.guild is not None, "Guild only"
-    return (itx.guild.id, current), kwds
-
-
-class IDTransformer(Transformer[Dynamo]):
+class Transformer(app_commands.Transformer[Dynamo]):
     @staticmethod
-    def _get_id_match(value: str, /) -> re.Match[str] | None:
-        return _ID_REGEX.match(value)
+    def ac_cache_transformer(
+        args: tuple[t.Any, ...], kwds: dict[str, t.Any]
+    ) -> tuple[tuple[t.Any, ...], dict[str, t.Any]]:
+        """Cache results for the transformer's autocomplete method"""
+        msg = "Derived classes will implement this"
+        raise NotImplementedError(msg)
 
 
-class EventTransformer(IDTransformer):
+class EventTransformer(Transformer):
     @t.override
     async def transform(self, itx: Interaction, value: str, /) -> discord.ScheduledEvent:
         guild = itx.guild
@@ -45,30 +42,37 @@ class EventTransformer(IDTransformer):
         result: discord.ScheduledEvent | None = None
 
         # ID match
-        if (match := self._get_id_match(value)) is not None:
+        if match := _ID_REGEX.match(value):
             evt_log.trace("Got ID match for %s", value)
             event_id = int(match.group(1))
             result = guild.get_scheduled_event(event_id)
-
         # URL match
-        elif (match := re.match(_URL_PATTERN, value, flags=re.IGNORECASE)) is not None:
+        elif match := re.match(_URL_PATTERN, value, flags=re.IGNORECASE):
             evt_log.trace("Got URL match for %s", value)
-            guild = itx.client.get_guild(int(match.group("guild_id")))
-            if guild is not None:
+            if int(match.group("guild_id")) == guild.id:
                 event_id = int(match.group("event_id"))
                 result = guild.get_scheduled_event(event_id)
+        # Lookup by name
         else:
-            # Lookup by name
             evt_log.trace("Trying lookup by name with %s", value)
             result = discord.utils.get(guild.scheduled_events, name=value)
 
         if result is None:
-            raise TransformerError(value, self.type, self) from None
+            raise app_commands.TransformerError(value, self.type, self) from None
 
         return result
 
     @t.override
-    @lrucorocache(cache_transform=ac_cache_transformer_guild)
+    @staticmethod
+    def ac_cache_transformer(
+        args: tuple[EventTransformer, Interaction, str], kwds: dict[str, object]
+    ) -> tuple[tuple[int, str], dict[str, object]]:
+        _self, itx, current = args
+        assert itx.guild is not None, "Used in guild only commands"
+        return (itx.guild.id, current), kwds
+
+    @t.override
+    @lrucorocache(cache_transform=ac_cache_transformer)
     async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # pyright: ignore[reportIncompatibleMethodOverride]
         assert itx.guild is not None, "Guild only transformer."
         events = itx.guild.scheduled_events[:25]

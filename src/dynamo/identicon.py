@@ -113,13 +113,6 @@ async def send_identicon(
     if foreground is None:
         foreground = generate_color(digest)
     img = await identicon_to_img(digest, foreground, background)
-    log.trace(
-        "%s generated (foregound: %s | background: %s) with algorithm %s",
-        value,
-        str(foreground),
-        str(background),
-        algorithm.upper(),
-    )
 
     file = discord.File(BytesIO(img), filename="identicon.png")
     description = f"Generated with **{algorithm.upper()}**"
