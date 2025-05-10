@@ -42,4 +42,12 @@ uv run check.py
 
 # Fix format/lint
 uv run check.py --fix
+
+# Verify type coverage
+uv run check.py --verify
 ```
+
+## License
+This project is released under [The Unlicense](LICENSE), placing all original work into the public domain.
+
+However, it includes third-party components with other licenses. These components retain their respective licenses and are clearly marked in their source files.

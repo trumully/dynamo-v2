@@ -14,8 +14,8 @@ from discord.enums import ButtonStyle
 from ._types import BotExports, DynButton, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
+from .transformer import EventTransformer
 from .utils import b2048pack, b2048unpack
-from .utils.transformer import EventTransformer
 
 log: Logger = get_logger(__name__)
 

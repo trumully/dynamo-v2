@@ -1,3 +1,14 @@
+"""
+This code is adapted from https://github.com/mikeshardmind/salamander-reloaded/blob/c2c104e78d62d676fe9c93eb70ff1b1c150f798c/src/salamander/bot.py
+Copyright and license is preserved in compliance with MPLv2
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
+"""
+
 from __future__ import annotations
 
 import datetime
@@ -83,7 +94,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             msg = f"You're on cooldown. Try again in {rel_time}"
             await itx.response.send_message(msg, ephemeral=True)
         elif isinstance(error, app_commands.TransformerError):
-            msg = f"`{error.value}` is not valid!"
+            msg = "Invalid input. Double check your input and try again."
             await itx.response.send_message(msg, ephemeral=True)
         else:
             await super().on_error(itx, error)

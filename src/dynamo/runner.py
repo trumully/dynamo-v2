@@ -1,6 +1,6 @@
 """
 This code is adapted from https://github.com/mikeshardmind/salamander-reloaded/blob/c2c104e78d62d676fe9c93eb70ff1b1c150f798c/src/salamander/runner.py
-Copyright and license is preserved in compliance of MPLv2
+Copyright and license is preserved in compliance with MPLv2
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -52,9 +52,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     )
     session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
 
-    from . import identicon, meta, spotify, tags, useful
+    from . import identicon, meta, spotify, useful
 
-    initial_exts: list[HasExports] = [identicon, meta, spotify, tags, useful]
+    initial_exts: list[HasExports] = [identicon, meta, spotify, useful]
 
     from .bot import Dynamo
 
