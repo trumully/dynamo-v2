@@ -22,7 +22,7 @@ from dynamo import _typing as t
 dirs: PlatformDirs = PlatformDirs("dynamo", "trumully", roaming=False)
 
 
-def resolve_path_with_links(path: Path, folder: bool = False) -> Path:
+def resolve_path_with_links(path: Path, /, *, folder: bool = False) -> Path:
     try:
         return path.resolve(strict=True)
     except FileNotFoundError:
