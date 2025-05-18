@@ -40,7 +40,15 @@ SIZE_OPTIONS = [SelectOption(label=str(i)) for i in VALID_SIZES]
 STATIC_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in VALID_STATIC_FORMATS]
 ASSET_FORMAT_OPTIONS = [SelectOption(label="." + f, value=f) for f in VALID_ASSET_FORMATS]
 
+# "mostly" the defaults
+DEFAULT_SIZE = 1024
+DEFAULT_FORMAT = Format.PNG
+
+DEFAULT_ASSET = Asset.AVATAR
+
 AssetData = tuple[str, int, int, Asset, Format, int]
+
+MISSING = discord.utils.MISSING
 
 
 def _fetch_banner_transform(
@@ -77,11 +85,7 @@ class AssetView:
 
     @staticmethod
     def setup(
-        user_name: str,
-        asset_url: str,
-        image_kind: str,
-        file_type: Format,
-        size: int,
+        user_name: str, asset_url: str, image_kind: str, file_type: str, size: int
     ) -> discord.Embed:
         e = discord.Embed(title=f"{user_name}'s {image_kind.lower()}")
         e.add_field(name="Format", value=file_type)
@@ -99,9 +103,9 @@ class AssetView:
         itx: Interaction,
         user_id: int,
         target_id: int,
-        image_kind: Asset = Asset.AVATAR,
-        file_type: Format = Format.PNG,
-        size: int = 512,
+        image_kind: Asset = DEFAULT_ASSET,
+        file_type: Format = DEFAULT_FORMAT,
+        size: int = DEFAULT_SIZE,
         *,
         initial: bool = False,
         deferred: bool = False,
@@ -116,53 +120,54 @@ class AssetView:
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
         banner = await fetch_banner(itx, user)
+        avatar = user.display_avatar
+        decoration = user.avatar_decoration
 
         if image_kind is Asset.AVATAR:
-            asset = user.display_avatar
+            asset = avatar
         elif image_kind is Asset.BANNER:
             asset = banner
-        else:
-            asset = user.avatar_decoration
-
-        has_no_banner = banner is None
-        has_no_decoration = user.avatar_decoration is None
+        elif image_kind is Asset.DECORATION:
+            asset = decoration
 
         assert asset is not None, "Button is disabled when the asset does not exist"
+        has_no_banner = banner is None
+        has_no_decoration = decoration is None
         is_animated = asset.is_animated()
-        asset = asset.with_format(file_type.value).with_size(size)
 
-        embed = cls.setup(user.name, asset.url, image_kind, file_type, size)
+        if file_type is not DEFAULT_FORMAT:
+            asset = asset.with_format(file_type.value)
+        if size != DEFAULT_SIZE:
+            asset = asset.with_size(size)
 
         v = discord.ui.View()
 
-        c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, "png", size)
+        avatar_format = "gif" if avatar.is_animated() else "png"
+        c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)
         v.add_item(DynButton(label="Avatar", custom_id=c_id))
 
-        c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, "png", size)
+        banner_format = "gif" if not has_no_banner and banner.is_animated() else "png"
+        c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, banner_format, size)
         v.add_item(DynButton(label="Banner", custom_id=c_id, disabled=has_no_banner))
 
+        # Animated decorations are an animated png so use png no matter what
         c_id = cls.custom_id("deco", user_id, target_id, Asset.DECORATION, "png", size)
         v.add_item(DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration))
-        if is_animated:
-            text = "This asset is animated. "
-            if image_kind is Asset.DECORATION:
-                text += "Set format to .png and open in browser to view."
-            else:
-                text += "Set format to .gif to view."
-            embed.set_footer(text=text)
 
         v.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
         c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
-        opts = (
+        options = (
             ASSET_FORMAT_OPTIONS
             if is_animated and image_kind is not Asset.DECORATION
             else STATIC_FORMAT_OPTIONS
         )
-        v.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=opts))
+        v.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
 
         c_id = cls.custom_id("size", user_id, target_id, image_kind, file_type, size)
         v.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
+
+        embed = cls.setup(user.name, asset.url, image_kind, file_type, size)
 
         method = send if initial else edit
         await method(embed=embed, view=v)
@@ -177,11 +182,10 @@ class AssetView:
 
         values: list[str] = itx.data.get("values", [])
         if values:
-            changed = values[0]
             if op == "format":
-                fmt = Format(changed) if changed in VALID_ASSET_FORMATS else Format.PNG
+                fmt = Format(values[0])
             elif op == "size":
-                size = int(changed) if discord.utils.valid_icon_size(int(changed)) else 512
+                size = int(values[0])
 
         await itx.response.defer(ephemeral=True)
         await cls.set_asset(itx, user_id, target_id, kind, fmt, size, deferred=True)

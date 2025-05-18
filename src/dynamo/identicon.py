@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Callable, Mapping
 from enum import StrEnum, auto
 from functools import partial
 from io import BytesIO
@@ -12,7 +11,6 @@ from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image
 
-from . import _typing as t
 from ._types import BotExports
 from .bot import Interaction
 from .color import Color
@@ -22,7 +20,7 @@ from .utils.wrappers import afunc
 log: Logger = get_logger(__name__)
 
 
-hash_kwargs: Mapping[str, object] = {"usedforsecurity": False}
+hash_kwargs = {"usedforsecurity": False}
 
 
 class Algorithm(StrEnum):
@@ -32,13 +30,8 @@ class Algorithm(StrEnum):
     SHA512 = auto()
 
 
-class _Hash(t.Protocol):
-    def digest(self) -> bytes: ...
-    def hexdigest(self) -> str: ...
-
-
 # fmt: off
-_HASH_ALGO_MAP: Mapping[Algorithm, Callable[[bytes], _Hash]] = {
+_HASH_ALGO_MAP = {
     Algorithm.MD5:      partial(hashlib.md5, **hash_kwargs),
     Algorithm.SHA1:     partial(hashlib.sha1, **hash_kwargs),
     Algorithm.SHA256:   partial(hashlib.sha256, **hash_kwargs),
@@ -79,8 +72,8 @@ def generate_color(digest: str, /) -> Color:
 
 
 @lrutaskcache()
-@afunc
-def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> bytes:
+@afunc()
+def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> BytesIO:
     to_fill = generate_pattern(digest)
 
     img = Image.new("RGB", (5, 5), background.to_rgb())
@@ -95,9 +88,8 @@ def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> by
 
     buff = BytesIO()
     result.save(buff, format="png")
-
     buff.seek(0)
-    return buff.getvalue()
+    return buff
 
 
 async def send_identicon(
@@ -114,7 +106,7 @@ async def send_identicon(
         foreground = generate_color(digest)
     img = await identicon_to_img(digest, foreground, background)
 
-    file = discord.File(BytesIO(img), filename="identicon.png")
+    file = discord.File(img, filename="identicon.png")
     description = f"Generated with **{algorithm.upper()}**"
     embed = discord.Embed(title=value, color=foreground, description=description)
     embed.add_field(name="Primary", value=str(foreground))

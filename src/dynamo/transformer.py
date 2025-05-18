@@ -47,7 +47,7 @@ class EventTransformer(Transformer):
             event_id = int(match.group(1))
             result = guild.get_scheduled_event(event_id)
         # URL match
-        elif match := re.match(_URL_PATTERN, value, flags=re.IGNORECASE):
+        elif match := re.match(_URL_PATTERN, value, re.IGNORECASE):
             evt_log.trace("Got URL match for %s", value)
             if int(match.group("guild_id")) == guild.id:
                 event_id = int(match.group("event_id"))
