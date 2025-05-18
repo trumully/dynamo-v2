@@ -40,9 +40,9 @@ PAINT_WHITE = Paint(t.cast("TextColor", (*WHITE, 255)))
 GRAY = (80, 80, 80)
 
 BLUR = ImageFilter.GaussianBlur(radius=30)
-LOGO_SIZE = LOGO_WIDTH, LOGO_HEIGHT = (48, 48)  # px
+LOGO_SIZE = LOGO_WIDTH, LOGO_HEIGHT = (48, 48)
 SIZE = WIDTH, HEIGHT = (800, 250)
-ALBUM_SIZE = ALBUM_WIDTH, ALBUM_HEIGHT = (250, 250)  # px
+ALBUM_SIZE = ALBUM_WIDTH, ALBUM_HEIGHT = (250, 250)
 
 PADDING = 15
 
@@ -69,14 +69,17 @@ def url_cache_transform(
 
 
 @lrutaskcache(maxsize=50, cache_transform=url_cache_transform)
-async def get_image(session: aiohttp.ClientSession, url: str, /) -> bytes:
+async def get_image(session: aiohttp.ClientSession, url: str, /) -> BytesIO:
     async with session.get(url) as r:
-        r.raise_for_status()
-        return await r.read()
+        if r.status != 200:
+            r.raise_for_status()
+        buff = BytesIO(await r.read())
+        buff.seek(0)
+        return buff
 
 
 async def send_spotify_embed(itx: Interaction, mention: str, activity: discord.Spotify) -> None:
-    async def try_get_image(url: str, /) -> bytes:
+    async def try_get_image(url: str, /) -> BytesIO:
         try:
             return await get_image(itx.client.session, url)
         except aiohttp.ClientError:
@@ -117,12 +120,10 @@ def time_from_seconds(seconds: int) -> str:
     return ":".join(result[::-1])
 
 
-@afunc
-def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> BytesIO:
-    cover_buf = BytesIO(album_cover)
-    cover_buf.seek(0)
+@afunc()
+def draw(album_buff: BytesIO, logo_buff: BytesIO, activity: discord.Spotify) -> BytesIO:
     # unknown type because resize() uses numpy types under the hood
-    cover = Image.open(cover_buf).convert("RGBA").resize(ALBUM_SIZE)  # pyright: ignore[reportUnknownMemberType]
+    cover = Image.open(album_buff).convert("RGBA").resize(ALBUM_SIZE)  # pyright: ignore[reportUnknownMemberType]
 
     seconds = activity.duration.total_seconds()
     progress = 1 - ((activity.end - discord.utils.utcnow()).total_seconds() / seconds)
@@ -134,10 +135,8 @@ def draw(album_cover: bytes, logo_bytes: bytes, activity: discord.Spotify) -> By
         draw = ImageDraw.Draw(img)
         img.paste(cover, (0, 0), cover)
 
-        logo_buf = BytesIO(logo_bytes)
-        logo_buf.seek(0)
         # unknown type because resize() uses numpy types under the hood
-        with Image.open(logo_buf).resize(LOGO_SIZE) as logo:  # pyright: ignore[reportUnknownMemberType]
+        with Image.open(logo_buff).resize(LOGO_SIZE) as logo:  # pyright: ignore[reportUnknownMemberType]
             img.paste(logo, (WIDTH - LOGO_WIDTH - PADDING, PADDING), logo)
 
         with Writer(img) as w:
@@ -199,10 +198,8 @@ async def get_spotify(
         await itx.response.send_message("That member is not in this guild.", ephemeral=True)
         return
 
-    activity: discord.Spotify
-    try:
-        activity = next(a for a in member.activities if isinstance(a, discord.Spotify))
-    except StopIteration:
+    activity = next((a for a in member.activities if isinstance(a, discord.Spotify)), None)
+    if activity is None:
         prefix = "You are" if user.id == itx.user.id else f"{user!s} is"
         await itx.response.send_message(f"{prefix} not listening to Spotify", ephemeral=True)
         return

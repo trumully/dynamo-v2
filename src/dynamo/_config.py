@@ -16,7 +16,7 @@ snowflake_regex = r"[0-9]{15,20}"
 
 
 def is_snowflake(value: int) -> bool:
-    return bool(re.match(snowflake_regex, str(value)))
+    return value == 0 or (bool(re.match(snowflake_regex, str(value))) and value.bit_length() >= 43)
 
 
 # https://github.com/dynaconf/dynaconf/pull/1107

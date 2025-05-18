@@ -68,10 +68,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             contexts.to_array(),
         )
         return cls(
-            client,
-            fallback_to_global=False,
-            allowed_contexts=contexts,
-            allowed_installs=installs,
+            client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs
         )
 
     @t.override
@@ -187,12 +184,17 @@ class Dynamo(discord.AutoShardedClient):
         log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
     async def versioned_sync(self, filename: str, /, *, guild: Snowflake | None = None) -> None:
-        path = dirs.user_cache_path / f"{filename}.hash"
+        if guild is not None:
+            path = dirs.user_cache_path / "guild_trees" / f"{filename}.hash"
+        else:
+            path = dirs.user_cache_path / f"{filename}.hash"
+
         path = resolve_path_with_links(path)
         tree_hash = await self.tree.get_hash(guild=guild)
-        log.info("Command %s hash digest: %s", filename, tree_hash.hex())
+        log.info("Hash digest for %s: %s", filename, tree_hash.hex())
         with path.open("r+b") as fp:
-            if fp.read() != tree_hash:
+            data = fp.read()
+            if data != tree_hash:
                 await self.tree.sync(guild=guild)
                 log.trace("Synced %s", filename)
                 fp.seek(0)
@@ -206,7 +208,7 @@ class Dynamo(discord.AutoShardedClient):
             if exports.commands:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)
-            if exports.dev_commands:
+            if exports.dev_commands and DEV_GUILD.id != 0:
                 for command_obj in exports.dev_commands:
                     self.tree.add_command(command_obj, guild=DEV_GUILD)
             if exports.raw_modal_submits:
@@ -215,7 +217,8 @@ class Dynamo(discord.AutoShardedClient):
                 self.raw_component_submits.update(exports.raw_component_submits)
 
         await self.versioned_sync("tree")
-        await self.versioned_sync("tree_dev", guild=DEV_GUILD)
+        if DEV_GUILD.id != 0:
+            await self.versioned_sync(str(DEV_GUILD.id), guild=DEV_GUILD)
 
     @t.override
     async def close(self) -> None:

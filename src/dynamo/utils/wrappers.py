@@ -30,16 +30,10 @@ else:
 _WRAP_ASSIGN = ("__module__", "__name__", "__qualname__", "__doc__")
 
 
-@t.overload
-def afunc(*, fast: bool = False) -> CoroDeco: ...
-@t.overload
-def afunc[**P, R](func: Callable[P, R], /) -> CoroFunc[P, R]: ...
-def afunc[**P, R](
-    func: Callable[P, R] | None = None, /, *, fast: bool = False
-) -> CoroFunc[P, R] | CoroDeco:
+def afunc(*, fast: bool = False) -> CoroDeco:
     """A decorator for a synchronous function which turns it into an asynchronous function."""
 
-    def wrapper(func: Callable[P, R], /) -> CoroFunc[P, R]:
+    def wrapper[**P, R](func: Callable[P, R], /) -> CoroFunc[P, R]:
         if iscoroutinefunction(func):
             return func
 
@@ -51,4 +45,4 @@ def afunc[**P, R](
 
         return wrapped
 
-    return t.cast("CoroDeco", wrapper) if func is None else wrapper(func)
+    return wrapper
