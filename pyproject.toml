@@ -21,10 +21,10 @@ classifiers = [
 ]
 dependencies = [
     "apsw~=3.49.1.0",
-    "discord-py[speed]~=2.6.0",
+    "discord-py~=2.7.0",
     "dynaconf~=3.3.0.dev0",
     "imagetext-py~=2.2.0",
-    "mikeshardmind-async-utils~=2025.05.3b",
+    "mikeshardmind-async-utils~=2025.8.3b",
     "mikeshardmind-base2048~=1.0.3",
     "msgspec~=0.19.0",
     "pillow~=11.1.0",
@@ -37,5 +37,5 @@ source = "https://github.com/trumully/dynamo-v2"
 
 [tool.uv.sources]
 mikeshardmind-async-utils = { git = "https://github.com/mikeshardmind/async-utils" }
-discord-py = { git = "https://github.com/mikeshardmind/discord.py", rev = "salamander-reloaded" }
 dynaconf = { git = "https://github.com/dynaconf/dynaconf" }
+discord-py = { git = "https://github.com/Rapptz/discord.py" }

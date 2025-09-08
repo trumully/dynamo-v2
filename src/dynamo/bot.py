@@ -22,6 +22,7 @@ from async_utils.lru import LRU
 from async_utils.task_cache import taskcache
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
+from discord.shard import _AutoShardedClientOptions  # pyright: ignore[reportPrivateUsage]
 
 from . import _typing as t
 from ._config import config
@@ -121,7 +122,7 @@ class Dynamo(discord.AutoShardedClient):
         conn: apsw.Connection,
         read_conn: apsw.Connection,
         initial_exts: list[HasExports],
-        **kwargs: object,
+        **kwargs: t.Unpack[_AutoShardedClientOptions],
     ) -> None:
         intents = discord.Intents.none() if intents is None else intents
         super().__init__(*args, intents=intents, **kwargs)

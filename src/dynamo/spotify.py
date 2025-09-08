@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import partial
 from io import BytesIO
 
@@ -62,8 +63,8 @@ LOGO_URL = (
 
 
 def url_cache_transform(
-    args: tuple[aiohttp.ClientSession, str], kwargs: dict[str, object]
-) -> tuple[tuple[str], dict[str, object]]:
+    args: tuple[aiohttp.ClientSession, str], kwargs: Mapping[str, object]
+) -> tuple[tuple[str], Mapping[str, object]]:
     _client, url = args
     return (url.casefold(),), kwargs
 
@@ -78,16 +79,17 @@ async def get_image(session: aiohttp.ClientSession, url: str, /) -> BytesIO:
         return buff
 
 
-async def send_spotify_embed(itx: Interaction, mention: str, activity: discord.Spotify) -> None:
-    async def try_get_image(url: str, /) -> BytesIO:
-        try:
-            return await get_image(itx.client.session, url)
-        except aiohttp.ClientError:
-            log.exception("Failed to get image at %s", url)
-            raise
+async def try_get_image(session: aiohttp.ClientSession, url: str, /) -> BytesIO:
+    try:
+        return await get_image(session, url)
+    except aiohttp.ClientError:
+        log.exception("Failed to get image at %s", url)
+        raise
 
-    cover = await try_get_image(activity.album_cover_url)
-    logo = await try_get_image(LOGO_URL)
+
+async def send_spotify_embed(itx: Interaction, mention: str, activity: discord.Spotify) -> None:
+    cover = await try_get_image(itx.client.session, activity.album_cover_url)
+    logo = await try_get_image(itx.client.session, LOGO_URL)
     image = await draw(cover, logo, activity)
     track = f"**[{activity.title}](<{activity.track_url}>)**"
     artists = f"**{human_join(activity.artists)}**"

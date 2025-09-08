@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from functools import partial
 
@@ -52,8 +53,8 @@ MISSING = discord.utils.MISSING
 
 
 def _fetch_banner_transform(
-    args: tuple[Interaction, discord.Member | discord.User], kwds: dict[str, object]
-) -> tuple[tuple[int], dict[str, object]]:
+    args: tuple[Interaction, discord.Member | discord.User], kwds: Mapping[str, object]
+) -> tuple[tuple[int], Mapping[str, object]]:
     _itx, user = args
     return (user.id,), kwds
 

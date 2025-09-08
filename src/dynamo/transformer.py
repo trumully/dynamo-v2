@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
 import discord
 from async_utils.corofunc_cache import lrucorocache
@@ -26,8 +27,8 @@ evt_log: Logger = log.getChild("EventTransformer")
 class Transformer(app_commands.Transformer[Dynamo]):
     @staticmethod
     def ac_cache_transformer(
-        args: tuple[t.Any, ...], kwds: dict[str, t.Any]
-    ) -> tuple[tuple[t.Any, ...], dict[str, t.Any]]:
+        args: tuple[t.Any, ...], kwds: Mapping[str, t.Any]
+    ) -> tuple[tuple[t.Any, ...], Mapping[str, t.Any]]:
         """Cache results for the transformer's autocomplete method"""
         msg = "Derived classes will implement this"
         raise NotImplementedError(msg)
@@ -65,8 +66,8 @@ class EventTransformer(Transformer):
     @t.override
     @staticmethod
     def ac_cache_transformer(
-        args: tuple[EventTransformer, Interaction, str], kwds: dict[str, object]
-    ) -> tuple[tuple[int, str], dict[str, object]]:
+        args: tuple[EventTransformer, Interaction, str], kwds: Mapping[str, object]
+    ) -> tuple[tuple[int, str], Mapping[str, object]]:
         _self, itx, current = args
         assert itx.guild is not None, "Used in guild only commands"
         return (itx.guild.id, current), kwds
