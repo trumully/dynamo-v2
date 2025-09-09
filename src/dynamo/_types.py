@@ -30,10 +30,24 @@ class RawSubmittableStatic(t.Protocol):
     async def raw_submit(interaction: DInter, data: str) -> object: ...
 
 
-class DynButton(ui.Button[ui.View]): ...
+class DynButton(ui.Button[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
 
 
-class DynSelect(ui.Select[ui.View]): ...
+class DynSelect(ui.Select[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
+
+
+class DynSection(ui.Section[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
+
+
+class DynContainer(ui.Container[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
+
+
+class DynRow(ui.ActionRow[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
 
 
 type ACommand = Command[t.Any, t.Any, t.Any]
