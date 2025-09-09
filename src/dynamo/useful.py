@@ -6,13 +6,13 @@ from functools import partial
 
 import discord
 from async_utils.task_cache import lrutaskcache
-from discord import ScheduledEvent, app_commands
+from discord import ScheduledEvent, app_commands, components, ui
 from discord.app_commands import Transform
 from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
-from ._types import BotExports, DynButton, DynSelect
+from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .transformer import EventTransformer
@@ -24,7 +24,7 @@ log: Logger = get_logger(__name__)
 class Asset(StrEnum):
     AVATAR = "avatar"
     BANNER = "banner"
-    DECORATION = "decoration"
+    DECO = "decoration"
 
 
 class Format(StrEnum):
@@ -86,13 +86,27 @@ class AssetView:
 
     @staticmethod
     def setup(
-        user_name: str, asset_url: str, image_kind: str, file_type: str, size: int
-    ) -> discord.Embed:
-        e = discord.Embed(title=f"{user_name}'s {image_kind.lower()}")
-        e.add_field(name="Format", value=file_type)
-        e.add_field(name="Size", value=size)
-        e.set_image(url=asset_url)
-        return e
+        name: str,
+        url: str,
+        kind: Asset,
+        fmt: Format,
+        size: int,
+        *,
+        is_animated: bool = False,
+    ) -> DynContainer:
+        text = f"# {name}'s {kind.lower()}"
+        text += f"\n**Format:** `{fmt}`       |       **Size:** `{size}`"
+        if is_animated:
+            text += f"\n-# This {kind.value} is animated; "
+            if kind is Asset.DECO:
+                text += "select `png` format and `Open in browser` to view."
+            else:
+                text += "select `gif` format to view."
+        return DynContainer(
+            ui.TextDisplay(text),
+            ui.MediaGallery(components.MediaGalleryItem(url)),
+            ui.Separator(visible=False),
+        )
 
     @classmethod
     async def start(cls, itx: Interaction, user_id: int, target_id: int) -> None:
@@ -128,7 +142,7 @@ class AssetView:
             asset = avatar
         elif image_kind is Asset.BANNER:
             asset = banner
-        elif image_kind is Asset.DECORATION:
+        elif image_kind is Asset.DECO:
             asset = decoration
 
         assert asset is not None, "Button is disabled when the asset does not exist"
@@ -141,37 +155,60 @@ class AssetView:
         if size != DEFAULT_SIZE:
             asset = asset.with_size(size)
 
-        v = discord.ui.View()
+        c = cls.setup(user.name, asset.url, image_kind, file_type, size, is_animated=is_animated)
+
+        btns = DynRow()
 
         avatar_format = "gif" if avatar.is_animated() else "png"
         c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)
-        v.add_item(DynButton(label="Avatar", custom_id=c_id))
+        btn = DynButton(
+            label="Avatar",
+            custom_id=c_id,
+            style=ButtonStyle.blurple,
+            disabled=image_kind is Asset.AVATAR,
+        )
+        btns.add_item(btn)
 
         banner_format = "gif" if not has_no_banner and banner.is_animated() else "png"
         c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, banner_format, size)
-        v.add_item(DynButton(label="Banner", custom_id=c_id, disabled=has_no_banner))
+        btn = DynButton(
+            label="Banner",
+            custom_id=c_id,
+            style=ButtonStyle.blurple,
+            disabled=has_no_banner or image_kind is Asset.BANNER,
+        )
+        btns.add_item(btn)
 
         # Animated decorations are an animated png so use png no matter what
-        c_id = cls.custom_id("deco", user_id, target_id, Asset.DECORATION, "png", size)
-        v.add_item(DynButton(label="Decoration", custom_id=c_id, disabled=has_no_decoration))
+        c_id = cls.custom_id("deco", user_id, target_id, Asset.DECO, "png", size)
+        btn = DynButton(
+            label="Decoration",
+            custom_id=c_id,
+            style=ButtonStyle.blurple,
+            disabled=has_no_decoration or image_kind is Asset.DECO,
+        )
+        btns.add_item(btn)
+        btns.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
-        v.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
+        c.add_item(btns).add_item(ui.Separator(visible=False))
 
         c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
+        row = DynRow()
         options = (
             ASSET_FORMAT_OPTIONS
-            if is_animated and image_kind is not Asset.DECORATION
+            if is_animated and image_kind is not Asset.DECO
             else STATIC_FORMAT_OPTIONS
         )
-        v.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
+        row.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
+        c.add_item(row)
 
         c_id = cls.custom_id("size", user_id, target_id, image_kind, file_type, size)
-        v.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
-
-        embed = cls.setup(user.name, asset.url, image_kind, file_type, size)
+        row = DynRow()
+        row.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
+        c.add_item(row)
 
         method = send if initial else edit
-        await method(embed=embed, view=v)
+        await method(view=ui.LayoutView().add_item(c))
 
     @classmethod
     async def raw_submit(cls, itx: Interaction, data: str) -> None:
