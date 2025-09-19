@@ -24,15 +24,12 @@ from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
 from . import _typing as t
-from ._config import config
 from ._types import HasExports, RawSubmittable
 from .logs import Logger, get_logger
 from .utils import dirs, resolve_path_with_links, to_json
 
 type Interaction = discord.Interaction[Dynamo]
 
-
-DEV_GUILD = discord.Object(config.dev_guild, type=discord.Guild)
 
 log: Logger = get_logger(__name__)
 
@@ -208,17 +205,12 @@ class Dynamo(discord.AutoShardedClient):
             if exports.commands:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)
-            if exports.dev_commands and DEV_GUILD.id != 0:
-                for command_obj in exports.dev_commands:
-                    self.tree.add_command(command_obj, guild=DEV_GUILD)
             if exports.raw_modal_submits:
                 self.raw_modal_submits.update(exports.raw_modal_submits)
             if exports.raw_component_submits:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
         await self.versioned_sync("tree")
-        if DEV_GUILD.id != 0:
-            await self.versioned_sync(str(DEV_GUILD.id), guild=DEV_GUILD)
 
     @t.override
     async def close(self) -> None:
