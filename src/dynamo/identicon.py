@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import Mapping
 from enum import StrEnum, auto
 from functools import partial
 from io import BytesIO
 
 import discord
-from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image
 
@@ -20,7 +20,7 @@ from .utils.wrappers import afunc
 log: Logger = get_logger(__name__)
 
 
-hash_kwargs = {"usedforsecurity": False}
+hash_kwargs: Mapping[str, object] = {"usedforsecurity": False}
 
 
 class Algorithm(StrEnum):
@@ -71,7 +71,6 @@ def generate_color(digest: str, /) -> Color:
     return Color.from_hsl(hue, 65.0 - sat, 75.0 - lum)
 
 
-@lrutaskcache()
 @afunc()
 def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> BytesIO:
     to_fill = generate_pattern(digest)
