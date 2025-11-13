@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__: list[str] = ["asyncio"]
+
 import asyncio
 from collections.abc import Callable, Coroutine
 from functools import wraps
