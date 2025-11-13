@@ -146,48 +146,50 @@ class AssetView:
             asset = decoration
 
         assert asset is not None, "Button is disabled when the asset does not exist"
-        has_no_banner = banner is None
-        has_no_decoration = decoration is None
-        is_animated = asset.is_animated()
 
         if file_type is not DEFAULT_FORMAT:
             asset = asset.with_format(file_type.value)
         if size != DEFAULT_SIZE:
             asset = asset.with_size(size)
 
-        c = cls.setup(user.name, asset.url, image_kind, file_type, size, is_animated=is_animated)
+        c = cls.setup(
+            user.name, asset.url, image_kind, file_type, size, is_animated=asset.is_animated()
+        )
 
         btns = DynRow()
 
         avatar_format = "gif" if avatar.is_animated() else "png"
         c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)
-        btn = DynButton(
-            label="Avatar",
-            custom_id=c_id,
-            style=ButtonStyle.blurple,
-            disabled=image_kind is Asset.AVATAR,
+        btns.add_item(
+            DynButton(
+                label="Avatar",
+                custom_id=c_id,
+                style=ButtonStyle.blurple,
+                disabled=image_kind is Asset.AVATAR,
+            )
         )
-        btns.add_item(btn)
 
-        banner_format = "gif" if not has_no_banner and banner.is_animated() else "png"
+        banner_format = "gif" if banner is not None and banner.is_animated() else "png"
         c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, banner_format, size)
-        btn = DynButton(
-            label="Banner",
-            custom_id=c_id,
-            style=ButtonStyle.blurple,
-            disabled=has_no_banner or image_kind is Asset.BANNER,
+        btns.add_item(
+            DynButton(
+                label="Banner",
+                custom_id=c_id,
+                style=ButtonStyle.blurple,
+                disabled=banner is None or image_kind is Asset.BANNER,
+            )
         )
-        btns.add_item(btn)
 
         # Animated decorations are an animated png so use png no matter what
         c_id = cls.custom_id("deco", user_id, target_id, Asset.DECO, "png", size)
-        btn = DynButton(
-            label="Decoration",
-            custom_id=c_id,
-            style=ButtonStyle.blurple,
-            disabled=has_no_decoration or image_kind is Asset.DECO,
+        btns.add_item(
+            DynButton(
+                label="Decoration",
+                custom_id=c_id,
+                style=ButtonStyle.blurple,
+                disabled=decoration is None or image_kind is Asset.DECO,
+            )
         )
-        btns.add_item(btn)
         btns.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
         c.add_item(btns).add_item(ui.Separator(visible=False))
@@ -196,7 +198,7 @@ class AssetView:
         row = DynRow()
         options = (
             ASSET_FORMAT_OPTIONS
-            if is_animated and image_kind is not Asset.DECO
+            if asset.is_animated() and image_kind is not Asset.DECO
             else STATIC_FORMAT_OPTIONS
         )
         row.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
