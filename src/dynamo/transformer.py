@@ -4,7 +4,6 @@ import re
 from collections.abc import Mapping
 
 import discord
-from async_utils.corofunc_cache import lrucorocache
 from discord import app_commands
 from discord.app_commands import Choice
 
@@ -64,16 +63,6 @@ class EventTransformer(Transformer):
         return result
 
     @t.override
-    @staticmethod
-    def ac_cache_transformer(
-        args: tuple[EventTransformer, Interaction, str], kwds: Mapping[str, object]
-    ) -> tuple[tuple[int, str], Mapping[str, object]]:
-        _self, itx, current = args
-        assert itx.guild is not None, "Used in guild only commands"
-        return (itx.guild.id, current), kwds
-
-    @t.override
-    @lrucorocache(cache_transform=ac_cache_transformer)
     async def autocomplete(self, itx: Interaction, current: str, /) -> list[Choice[str]]:  # pyright: ignore[reportIncompatibleMethodOverride]
         assert itx.guild is not None, "Guild only transformer."
         events = itx.guild.scheduled_events[:25]

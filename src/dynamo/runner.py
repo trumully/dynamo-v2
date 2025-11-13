@@ -45,6 +45,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     intents.guilds = True
     intents.members = True
     intents.presences = True
+    # needed for consistent scheduled event fetching
+    # otherwise any created / deleted events are not added or removed as expected.
+    intents.guild_scheduled_events = True
 
     connector = aiohttp.TCPConnector(
         happy_eyeballs_delay=None,

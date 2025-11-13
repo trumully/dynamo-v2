@@ -238,19 +238,18 @@ async def get_assets(itx: Interaction, user: discord.Member | discord.User) -> N
 
 
 @app_commands.command(name="interested", description="Get event hyperlink with list of attendees")
-@app_commands.describe(event="The name of the event", ephemeral="Send privately")
+@app_commands.describe(event="The name of the event")
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
 async def interested(
     itx: Interaction,
     event: Transform[ScheduledEvent, EventTransformer],
-    ephemeral: bool = True,
 ) -> None:
     assert itx.guild is not None, "This is a guild only command"
 
     users_interested = " ".join([u.mention async for u in event.users()])
     content = f"`[{event.name}]({event.url}) {users_interested or 'None interested'}`"
 
-    await itx.response.send_message(content=content, ephemeral=ephemeral)
+    await itx.response.send_message(content=content, ephemeral=True)
 
 
 exports: BotExports = BotExports(
