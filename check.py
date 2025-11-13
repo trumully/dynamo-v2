@@ -1,8 +1,8 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "ruff~=0.11.8",
-#     "basedpyright~=1.29.1",
+#     "ruff~=0.14.4",
+#     "basedpyright~=1.33.0",
 # ]
 # ///
 
@@ -33,7 +33,7 @@ def github_action(name: str) -> Generator[None]:
 def run(*command: str) -> None:
     msg = f"Running {' '.join(str(c) for c in command)}"
     with github_action(msg):
-        process = Popen(command)
+        process = Popen[bytes](command)
         try:
             process.wait()
         except KeyboardInterrupt:
@@ -58,14 +58,12 @@ def main() -> None:
     excl.add_argument(
         "--fix",
         action="store_true",
-        default=False,
         help="fix any reported errors where possible",
         dest="fix",
     )
     excl.add_argument(
         "--verify",
         action="store_true",
-        default=False,
         help="verify typing of the module",
         dest="verify",
     )
