@@ -180,24 +180,6 @@ class Dynamo(discord.AutoShardedClient):
             )
         log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
-    async def versioned_sync(self, filename: str, /, *, guild: Snowflake | None = None) -> None:
-        if guild is not None:
-            path = dirs.user_cache_path / "guild_trees" / f"{filename}.hash"
-        else:
-            path = dirs.user_cache_path / f"{filename}.hash"
-
-        path = resolve_path_with_links(path)
-        tree_hash = await self.tree.get_hash(guild=guild)
-        log.info("Hash digest for %s: %s", filename, tree_hash.hex())
-        with path.open("r+b") as fp:
-            data = fp.read()
-            if data != tree_hash:
-                await self.tree.sync(guild=guild)
-                log.trace("Synced %s", filename)
-                fp.seek(0)
-                fp.write(tree_hash)
-
-    @t.override
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
@@ -210,7 +192,16 @@ class Dynamo(discord.AutoShardedClient):
             if exports.raw_component_submits:
                 self.raw_component_submits.update(exports.raw_component_submits)
 
-        await self.versioned_sync("tree")
+        path = dirs.user_cache_path / "tree.hash"
+        path = resolve_path_with_links(path)
+        tree_hash = await self.tree.get_hash()
+        log.info("Tree hash digest: %s", tree_hash.hex())
+        with path.open("r+b") as fp:
+            data = fp.read()
+            if data != tree_hash:
+                await self.tree.sync()
+                fp.seek(0)
+                fp.write(tree_hash)
 
     @t.override
     async def close(self) -> None:
