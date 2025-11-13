@@ -11,8 +11,8 @@ from dynamo import _typing as t
 @deprecated("seq must not be a string")
 def human_join(seq: str, /, *, delimiter: str, end: str) -> str: ...
 @t.overload
-def human_join(seq: Sequence[str], /, *, delimiter: str = ", ", end: str = "and") -> str: ...
-def human_join(seq: Sequence[str], /, *, delimiter: str = ", ", end: str = "and") -> str:
+def human_join(seq: Sequence[str], /, *, delimiter: str = ", ", end: str = "and") -> str: ...  # noqa: F811
+def human_join(seq: Sequence[str], /, *, delimiter: str = ", ", end: str = "and") -> str:  # noqa: F811
     if (size := len(seq)) == 0:
         return ""
 
