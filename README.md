@@ -7,7 +7,10 @@
 ## Set up
 ### Prerequisites 
 * [Python 3.13](https://www.python.org/downloads/)
-* [uv](https://docs.astral.sh/uv/getting-started/installation/) (optional)
+* [uv](https://docs.astral.sh/uv/getting-started/installation/) 
+    ```pwsh
+    winget install -e --id astral-sh.uv
+    ```
 
 > [!TIP]
 > If you use `uv`, it will [download Python versions when they are required](https://docs.astral.sh/uv/guides/install-python/#automatic-python-downloads)
@@ -23,7 +26,6 @@ Requirements specified in `pyproject.toml` / `uv.lock`
 ### .secrets.toml
 ```toml
 token = "your token here"
-dev_guild = 12345  # your own guild here
 ```
 Alternatively, you can set the environment variable `DYNAMO_TOKEN`
 
