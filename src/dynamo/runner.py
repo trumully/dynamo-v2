@@ -11,6 +11,8 @@ Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
 
 from __future__ import annotations
 
+__lazy_modules__: list[str] = ["asyncio"]
+
 import asyncio
 import gc
 import os
