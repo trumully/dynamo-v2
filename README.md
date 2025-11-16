@@ -44,9 +44,6 @@ uv run check.py
 
 # Fix format/lint
 uv run check.py --fix
-
-# Verify type coverage
-uv run check.py --verify
 ```
 
 ## License
