@@ -55,32 +55,15 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Check format, types, linting")
     excl = parser.add_mutually_exclusive_group()
-    excl.add_argument(
-        "--fix",
-        action="store_true",
-        help="fix any reported errors where possible",
-        dest="fix",
-    )
-    excl.add_argument(
-        "--verify",
-        action="store_true",
-        help="verify typing of the module",
-        dest="verify",
-    )
+    excl.add_argument("--fix", action="store_true", help="Fix any reported errors where possible", dest="fix")
     args = parser.parse_args()
 
-    if args.verify:
-        run("uv", "run", "basedpyright", "--verifytypes", "dynamo", "--ignoreexternal")
-        return
-
-    ruff_check = ["uv", "run", "ruff", "check"]
     if args.fix:
-        ruff_check.append("--fix")
-    run(*ruff_check)
-
-    ruff_format = ["uv", "run", "ruff", "format"]
-    ruff_format.append("." if args.fix else "--diff")
-    run(*ruff_format)
+        run("uv", "run", "ruff", "check", "--fix")
+        run("uv", "run", "ruff", "format", ".")
+    else:
+        run("uv", "run", "ruff", "check")
+        run("uv", "run", "ruff", "format", "--diff")
 
     run("uv", "run", "basedpyright", "--warnings")
 
