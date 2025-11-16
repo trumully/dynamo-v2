@@ -32,9 +32,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     BaseLogger: type[logging.Logger] = logging.Logger
-    type _SysExcInfoType = (
-        tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
-    )
+    type _SysExcInfoType = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     type _ExcInfoType = bool | _SysExcInfoType | BaseException | None
 
     class LoggerKwarg(t.TypedDict, total=False):
@@ -81,7 +79,6 @@ class KnownWarningFilter(logging.Filter):
         "PyNaCl is not installed, voice will NOT be supported",
     )
 
-    @t.override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.msg not in self.known_messages
 
@@ -102,14 +99,10 @@ LC = (
     (logging.CRITICAL, "\x1b[41m"),
 )
 
-FORMATS = {
-    level: logging.Formatter(_MSG_PREFIX + color + _MSG_POSTFIX, "%Y-%m-%d %H:%M:%S")
-    for level, color in LC
-}
+FORMATS = {level: logging.Formatter(_MSG_PREFIX + color + _MSG_POSTFIX, "%Y-%m-%d %H:%M:%S") for level, color in LC}
 
 
 class AnsiTermFormatter(logging.Formatter):
-    @t.override
     def format(self, record: logging.LogRecord) -> str:
         formatter = FORMATS.get(record.levelno)
         if formatter is None:

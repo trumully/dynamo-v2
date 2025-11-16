@@ -56,9 +56,7 @@ BAR_Y = HEIGHT - BAR_HEIGHT - PADDING - 30
 BAR_LENGTH = BAR_X + BAR_WIDTH
 BAR_TEXT_Y = HEIGHT - PADDING - 24
 
-LOGO_URL = (
-    "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png"
-)
+LOGO_URL = "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png"
 
 
 def url_cache_transform(
@@ -188,9 +186,7 @@ def make_gradient(cover: Image.Image, /) -> Image.Image:
 @app_commands.describe(user="The user to check. You by default")
 @app_commands.checks.cooldown(1, 5.0, key=lambda i: i.user.id)
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
-async def get_spotify(
-    itx: Interaction, user: (discord.Member | discord.User) | None = None
-) -> None:
+async def get_spotify(itx: Interaction, user: (discord.Member | discord.User) | None = None) -> None:
     assert itx.guild is not None, "This is a guild only command"
 
     user = itx.user if user is None else user
