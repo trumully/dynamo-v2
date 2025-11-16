@@ -5,9 +5,9 @@ from enum import StrEnum
 from functools import partial
 
 import discord
+from async_utils.corofunc_cache import lrucorocache
 from async_utils.task_cache import lrutaskcache
-from discord import ScheduledEvent, app_commands, components, ui
-from discord.app_commands import Transform
+from discord import app_commands, components, ui
 from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
@@ -15,7 +15,6 @@ from discord.enums import ButtonStyle
 from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
-from .transformer import EventTransformer
 from .utils import b2048pack, b2048unpack
 
 log: Logger = get_logger(__name__)
@@ -49,8 +48,6 @@ DEFAULT_ASSET = Asset.AVATAR
 
 AssetData = tuple[str, int, int, Asset, Format, int]
 
-MISSING = discord.utils.MISSING
-
 
 def _fetch_banner_transform(
     args: tuple[Interaction, discord.Member | discord.User], kwds: Mapping[str, object]
@@ -59,10 +56,8 @@ def _fetch_banner_transform(
     return (user.id,), kwds
 
 
-@lrutaskcache(cache_transform=_fetch_banner_transform)
-async def fetch_banner(
-    itx: Interaction, user: discord.Member | discord.User
-) -> discord.Asset | None:
+@lrutaskcache(ttl=3600, cache_transform=_fetch_banner_transform)
+async def fetch_banner(itx: Interaction, user: discord.Member | discord.User) -> discord.Asset | None:
     """Fetch a banner from a member or user.
 
     Due to a bug in dpy, the fallback for `discord.Member.display_banner` is always `None`.
@@ -97,11 +92,11 @@ class AssetView:
         text = f"# {name}'s {kind.lower()}"
         text += f"\n**Format:** `{fmt}`       |       **Size:** `{size}`"
         if is_animated:
-            text += f"\n-# This {kind.value} is animated; "
+            text += f"\n-# This {kind.value} is **animated**. "
             if kind is Asset.DECO:
-                text += "select `png` format and `Open in browser` to view."
+                text += "Select `png` format and click `View` to see the animation."
             else:
-                text += "select `gif` format to view."
+                text += "Select `gif` format to view."
         return DynContainer(
             ui.TextDisplay(text),
             ui.MediaGallery(components.MediaGalleryItem(url)),
@@ -152,9 +147,7 @@ class AssetView:
         if size != DEFAULT_SIZE:
             asset = asset.with_size(size)
 
-        c = cls.setup(
-            user.name, asset.url, image_kind, file_type, size, is_animated=asset.is_animated()
-        )
+        c = cls.setup(user.name, asset.url, image_kind, file_type, size, is_animated=asset.is_animated())
 
         btns = DynRow()
 
@@ -196,11 +189,7 @@ class AssetView:
 
         c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
         row = DynRow()
-        options = (
-            ASSET_FORMAT_OPTIONS
-            if asset.is_animated() and image_kind is not Asset.DECO
-            else STATIC_FORMAT_OPTIONS
-        )
+        options = ASSET_FORMAT_OPTIONS if asset.is_animated() and image_kind is not Asset.DECO else STATIC_FORMAT_OPTIONS
         row.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
         c.add_item(row)
 
@@ -237,21 +226,48 @@ async def get_assets(itx: Interaction, user: discord.Member | discord.User) -> N
     await view.start(itx, itx.user.id, user.id)
 
 
+def cf_ac_cache_transform(
+    args: tuple[Interaction, str], kwds: Mapping[str, object]
+) -> tuple[tuple[int, str], Mapping[str, object]]:
+    itx, current = args
+    assert itx.guild is not None, "Used in guild only commands"
+    return (itx.guild.id, current.casefold()), kwds
+
+
 @app_commands.command(name="interested", description="Get event hyperlink with list of attendees")
 @app_commands.describe(event="The name of the event")
 @app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
-async def interested(
-    itx: Interaction,
-    event: Transform[ScheduledEvent, EventTransformer],
-) -> None:
+async def interested(itx: Interaction, event: str) -> None:
     assert itx.guild is not None, "This is a guild only command"
 
-    users_interested = " ".join([u.mention async for u in event.users()])
-    content = f"`[{event.name}]({event.url}) {users_interested or 'None interested'}`"
+    try:
+        actual_event = itx.guild.get_scheduled_event(int(event))
 
-    await itx.response.send_message(content=content, ephemeral=True)
+        if actual_event is None:
+            # Cancelled/ended during invocation or stale cache
+            await itx.response.send_message("That event was recently cancelled, ended, or does not exist.", ephemeral=True)
+            return
+
+        users_interested = " ".join([u.mention async for u in actual_event.users()])
+        content = f"`[{actual_event.name}]({actual_event.url}) {users_interested or 'None interested'}`"
+
+        await itx.response.send_message(content, ephemeral=True)
+    except ValueError:
+        # A valid event will return as the scheduled event id in string form.
+        await itx.response.send_message("Not a valid scheduled event in this server.", ephemeral=True)
+    except Exception as ex:
+        log.exception("Couldn't get event", exc_info=ex)
+        await itx.response.send_message("Could not get that event. Is it a scheduled event in this guild?", ephemeral=True)
 
 
-exports: BotExports = BotExports(
-    commands=[interested, get_assets], raw_component_submits={"asset": AssetView}
-)
+@interested.autocomplete("event")
+@lrucorocache(300, cache_transform=cf_ac_cache_transform)
+async def autocomplete(itx: Interaction, current: str, /) -> list[app_commands.Choice[str]]:
+    assert itx.guild is not None, "Guild only transformer."
+    cf_current = current.casefold()
+    event_matches = {e for e in itx.guild.scheduled_events if e.name.casefold().startswith(cf_current)}
+    events = sorted(event_matches, key=lambda e: e.name)[:25]
+    return [app_commands.Choice(name=e.name, value=str(e.id)) for e in events]
+
+
+exports: BotExports = BotExports(commands=[interested, get_assets], raw_component_submits={"asset": AssetView})
