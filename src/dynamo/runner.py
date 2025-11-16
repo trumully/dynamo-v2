@@ -27,6 +27,7 @@ import apsw.bestpractice
 import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
+from . import _typing as t
 from ._config import get_token
 from ._types import HasExports
 from .logs import Logger, get_logger, with_logging
@@ -37,7 +38,7 @@ log: Logger = get_logger(__name__)
 DB_PATH = str(dirs.user_data_path / "dynamo.db")
 
 
-def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals]) -> None:
+def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signals | SpecialExit]) -> None:
     loop.set_task_factory(asyncio.eager_task_factory)
     asyncio.set_event_loop(loop)
 
@@ -86,7 +87,7 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     async def sig_handler() -> None:
         sig = await queue.get()
         if sig != SpecialExit.EXIT:
-            log.info("Shutting down, received signal %r", sig)
+            log.info("Shutting down, received signal: %r", sig)
         loop.call_soon(loop.stop)
 
     async def entry_point() -> None:
@@ -104,23 +105,19 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     finally:
         fut.remove_done_callback(stop_when_done)
         if not client.is_closed():
-            log.trace("Client not closed, trying to close")
             _close_task = loop.create_task(client.close())
-        loop.run_until_complete(asyncio.sleep(1e-3))
+        loop.run_until_complete(asyncio.sleep(0.001))
 
-        tasks = {t for t in asyncio.all_tasks(loop) if not t.done()}
+        tasks: set[asyncio.Task[t.Any]] = {t for t in asyncio.all_tasks(loop) if not t.done()}
 
         async def limited_finalization() -> None:
             _done, pending = await asyncio.wait(tasks, timeout=0.1)
             if not pending:
-                log.trace("Clean shutdown accomplished")
+                log.debug("Clean shutdown accomplished")
                 return
 
             for task in tasks:
                 task.cancel()
-                name = task.get_name()
-                coro = task.get_coro()
-                log.trace("Cancelled task %s wrapping coro %r", name, coro)
 
             _done, pending = await asyncio.wait(tasks, timeout=0.1)
 
@@ -159,7 +156,7 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
 
 def _wrapped_run_bot(
     loop: asyncio.AbstractEventLoop,
-    queue: asyncio.Queue[signal.Signals],
+    queue: asyncio.Queue[signal.Signals | SpecialExit],
     socket: socket.socket,
 ):
     try:

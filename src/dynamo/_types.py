@@ -11,8 +11,6 @@ Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 from discord import Interaction as DInter
 from discord import ui
 from discord.app_commands import Command, ContextMenu, Group
@@ -55,12 +53,10 @@ type AppCommandTypes = Group | ACommand | ContextMenu
 type RawSubmittable = RawSubmittableCls | RawSubmittableStatic
 
 
-@dataclass(slots=True)
-class BotExports:
-    commands: list[AppCommandTypes] = field(default_factory=list)
-    dev_commands: list[AppCommandTypes] = field(default_factory=list)
-    raw_component_submits: dict[str, type[RawSubmittable]] = field(default_factory=dict)
-    raw_modal_submits: dict[str, type[RawSubmittable]] = field(default_factory=dict)
+class BotExports(t.NamedTuple):
+    commands: list[AppCommandTypes] | None = None
+    raw_component_submits: dict[str, type[RawSubmittable]] | None = None
+    raw_modal_submits: dict[str, type[RawSubmittable]] | None = None
 
 
 class HasExports(t.Protocol):

@@ -40,10 +40,7 @@ component_regex: re.Pattern[str] = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DO
 def _hash_payload(payload: list[dict[str, object]]) -> bytes:
     tree_hash = blake2b(digest_size=32, person=b"tree", last_node=True, usedforsecurity=False)
     command_hashes = [
-        blake2b(
-            to_json(c).encode(), person=b"command", last_node=False, usedforsecurity=False
-        ).digest()
-        for c in payload
+        blake2b(to_json(c).encode(), person=b"command", last_node=False, usedforsecurity=False).digest() for c in payload
     ]
     for h in sorted(command_hashes):
         tree_hash.update(h)
@@ -55,20 +52,9 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
     @classmethod
     def from_dynamo(cls: type[t.Self], client: Dynamo) -> t.Self:
         installs = app_commands.AppInstallationType(user=False, guild=True)
+        contexts = app_commands.AppCommandContext(dm_channel=True, guild=True, private_channel=True)
+        return cls(client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs)
 
-        ctx = app_commands.AppCommandContext
-        contexts = ctx(dm_channel=True, guild=True, private_channel=True)
-        log.trace(
-            "Got %s with installs %s and contexts %s",
-            cls.__qualname__,
-            installs.to_array(),
-            contexts.to_array(),
-        )
-        return cls(
-            client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs
-        )
-
-    @t.override
     async def interaction_check(self, itx: Interaction, /) -> bool:
         if not await itx.client.is_blocked(itx.user.id):
             return True
@@ -80,18 +66,15 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             await resp.defer(ephemeral=True)
         return False
 
-    @t.override
     async def on_error(self, itx: Interaction, error: app_commands.AppCommandError, /) -> None:
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
-            await itx.response.send_message(msg, ephemeral=True)
-        elif isinstance(error, app_commands.TransformerError):
-            msg = "Invalid input. Double check your input and try again."
-            await itx.response.send_message(msg, ephemeral=True)
-        else:
-            await super().on_error(itx, error)
+            await itx.response.send_message(msg, ephemeral=True, delete_after=error.retry_after)
+            return
+
+        await super().on_error(itx, error)
 
     async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
         commands = self._get_all_commands(guild=guild)
@@ -121,14 +104,14 @@ class Dynamo(discord.AutoShardedClient):
         **kwargs: object,
     ) -> None:
         intents = discord.Intents.none() if intents is None else intents
-        super().__init__(*args, intents=intents, **kwargs)  # pyright: ignore[reportArgumentType]
+        super().__init__(*args, intents=intents, **kwargs)  # pyright: ignore[reportArgumentType] - unpacked typed dict
         self.tree: VersionedTree = VersionedTree.from_dynamo(self)
         self.raw_modal_submits: dict[str, RawSubmittable] = {}
         self.raw_component_submits: dict[str, RawSubmittable] = {}
         self.session: aiohttp.ClientSession = session
         self.conn: apsw.Connection = conn
         self.read_conn: apsw.Connection = read_conn
-        self.block_cache: LRU[int, bool] = LRU(512)
+        self.block_cache: LRU[int, bool] = LRU[int, bool](512)
         self.initial_exts: list[HasExports] = initial_exts
 
     @taskcache(3600)
@@ -178,12 +161,11 @@ class Dynamo(discord.AutoShardedClient):
                 """,
                 (user_id, blocked),
             )
-        log.trace("%s %d", "Blocked" if blocked else "Unblocked", user_id)
+        log.info("%s %d", "Blocked" if blocked else "Unblocked", user_id)
 
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:
             exports = mod.exports
-            log.trace("Adding exports from %s", mod.__name__)
             if exports.commands:
                 for command_obj in exports.commands:
                     self.tree.add_command(command_obj)
@@ -191,6 +173,7 @@ class Dynamo(discord.AutoShardedClient):
                 self.raw_modal_submits.update(exports.raw_modal_submits)
             if exports.raw_component_submits:
                 self.raw_component_submits.update(exports.raw_component_submits)
+            log.trace("Added exports from %s", mod.__name__)
 
         path = dirs.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)
@@ -203,7 +186,6 @@ class Dynamo(discord.AutoShardedClient):
                 fp.seek(0)
                 fp.write(tree_hash)
 
-    @t.override
     async def close(self) -> None:
         await super().close()
         await self.session.close()

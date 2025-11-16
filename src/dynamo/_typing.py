@@ -40,7 +40,6 @@ if TYPE_CHECKING:
         Unpack,
         cast,
         overload,
-        override,
     )
 else:
 
@@ -57,7 +56,6 @@ else:
             "NotRequired",
             "cast",
             "overload",
-            "override",
         }:
             import typing
 
@@ -80,5 +78,4 @@ __all__ = (
     "Unpack",
     "cast",
     "overload",
-    "override",
 )
