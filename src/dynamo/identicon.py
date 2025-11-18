@@ -4,7 +4,7 @@ import hashlib
 import time
 from collections.abc import Mapping
 from enum import StrEnum, auto
-from functools import partial
+from functools import lru_cache, partial
 from io import BytesIO
 
 import discord
@@ -43,6 +43,7 @@ _HASH_ALGO_MAP = {
 WHITE = Color.white()
 
 
+@lru_cache
 def generate_pattern(digest: str, /) -> list[list[bool]]:
     col3 = [int(x, 16) % 2 == 0 for x in digest[:5]]
     col2 = [int(x, 16) % 2 == 0 for x in digest[5:10]]
@@ -51,6 +52,7 @@ def generate_pattern(digest: str, /) -> list[list[bool]]:
     return [[col1[i], col2[i], col3[i], col2[i], col1[i]] for i in range(5)]
 
 
+@lru_cache
 def remap(value: str, v_min: int, v_max: int, d_min: int, d_max: int) -> float:
     v = int(value, 16)
     return ((v - v_min) * (d_max - d_min)) / ((v_max - v_min) + d_min)
