@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import datetime
 import re
+from collections.abc import Sequence
 from hashlib import blake2b
 
 import aiohttp
 import apsw
 import discord
 from async_utils.lru import LRU
-from async_utils.task_cache import taskcache
+from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
@@ -55,26 +56,26 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         contexts = app_commands.AppCommandContext(dm_channel=True, guild=True, private_channel=True)
         return cls(client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs)
 
-    async def interaction_check(self, itx: Interaction, /) -> bool:
-        if not await itx.client.is_blocked(itx.user.id):
+    async def interaction_check(self, interaction: Interaction, /) -> bool:
+        if not await interaction.client.is_blocked(interaction.user.id):
             return True
-        log.trace("%s is blocked", itx.user)
-        resp = itx.response
-        if itx.type is InteractionType.application_command:
+        log.trace("%s is blocked", interaction.user)
+        resp = interaction.response
+        if interaction.type is InteractionType.application_command:
             await resp.send_message("Blocked", ephemeral=True)
         else:
             await resp.defer(ephemeral=True)
         return False
 
-    async def on_error(self, itx: Interaction, error: app_commands.AppCommandError, /) -> None:
+    async def on_error(self, interaction: Interaction, error: app_commands.AppCommandError, /) -> None:
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
             msg = f"You're on cooldown. Try again in {rel_time}"
-            await itx.response.send_message(msg, ephemeral=True, delete_after=error.retry_after)
+            await interaction.response.send_message(msg, ephemeral=True, delete_after=error.retry_after)
             return
 
-        await super().on_error(itx, error)
+        await super().on_error(interaction, error)
 
     async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
         commands = self._get_all_commands(guild=guild)
@@ -113,25 +114,33 @@ class Dynamo(discord.AutoShardedClient):
         self.read_conn: apsw.Connection = read_conn
         self.block_cache: LRU[int, bool] = LRU[int, bool](512)
         self.initial_exts: list[HasExports] = initial_exts
+        self._last_interact_waterfall = Waterfall(10, 100, self.update_last_seen)
 
-    @taskcache(3600)
-    async def cachefetch_priority_ids(self) -> set[int]:
-        app_info = await self.application_info()
-        owner = app_info.owner.id
-        team = app_info.team
-        return {owner, *(t.id for t in team.members)} if team else {owner}
+    async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
+        with self.conn:
+            self.conn.executemany(
+                """
+                INSERT INTO users (user_id, last_interaction)
+                VALUES (?, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id)
+                DO UPDATE SET last_interaction=excluded.last_interaction;
+                """,
+                ((user_id,) for user_id in user_ids),
+            )
 
-    async def on_interaction(self, itx: Interaction) -> None:
+    async def on_interaction(self, interaction: Interaction) -> None:
+        if not await self.is_blocked(interaction.user.id):
+            self._last_interact_waterfall.put(interaction.user.id)
         for kind, regex, mapping in (
             (InteractionType.modal_submit, modal_regex, self.raw_modal_submits),
             (InteractionType.component, component_regex, self.raw_component_submits),
         ):
-            if itx.type is kind and itx.data is not None:
-                custom_id = itx.data.get("custom_id", "")
+            if interaction.type is kind and interaction.data is not None:
+                custom_id = interaction.data.get("custom_id", "")
                 if match := regex.match(custom_id):
                     name, data = match.groups()
                     if rs := mapping.get(name):
-                        await rs.raw_submit(itx, data)
+                        await rs.raw_submit(interaction, data)
 
     async def is_blocked(self, user_id: int) -> bool:
         if (blocked := self.block_cache.get(user_id, None)) is not None:
@@ -173,7 +182,7 @@ class Dynamo(discord.AutoShardedClient):
                 self.raw_modal_submits.update(exports.raw_modal_submits)
             if exports.raw_component_submits:
                 self.raw_component_submits.update(exports.raw_component_submits)
-            log.trace("Added exports from %s", mod.__name__)
+            log.debug("Added exports from %s", mod.__name__)
 
         path = dirs.user_cache_path / "tree.hash"
         path = resolve_path_with_links(path)
@@ -186,6 +195,11 @@ class Dynamo(discord.AutoShardedClient):
                 fp.seek(0)
                 fp.write(tree_hash)
 
+    async def start(self, token: str, *, reconnect: bool = True) -> None:
+        self._last_interact_waterfall.start()
+        return await super().start(token, reconnect=reconnect)
+
     async def close(self) -> None:
         await super().close()
+        await self._last_interact_waterfall.stop()
         await self.session.close()
