@@ -120,13 +120,9 @@ class Dynamo(discord.AutoShardedClient):
         self.user_block_cache: LRU[int, bool] = LRU[int, bool](512)
         self.guild_block_cache: LRU[int, bool] = LRU[int, bool](256)
         self.initial_exts: list[HasExports] = initial_exts
-        self._interact_waterfall: Waterfall[tuple[int, int]] = Waterfall(10, 100, self.update_user_and_guild)
+        self._last_interact_waterfall: Waterfall[int] = Waterfall(10, 100, self.update_last_seen)
 
-    async def update_user_and_guild(self, ids: Sequence[tuple[int, int]], /) -> None:
-        users, guilds = zip(*ids, strict=True)
-        user_ids = set[int](users)
-        # guild id of 0 means it's not a guild
-        guild_ids = set[int](g for g in guilds if g != 0)
+    async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
         with self.conn:
             self.conn.executemany(
                 """
@@ -137,20 +133,11 @@ class Dynamo(discord.AutoShardedClient):
                 """,
                 ((user_id,) for user_id in user_ids),
             )
-            self.conn.executemany(
-                """
-                INSERT INTO guilds (guild_id)
-                VALUES (?)
-                ON CONFLICT (guild_id)
-                DO NOTHING
-                """,
-                ((guild_id,) for guild_id in guild_ids),
-            )
 
     async def on_interaction(self, interaction: Interaction) -> None:
         guild_id = 0 if interaction.guild is None else interaction.guild.id
         if not await self.is_user_blocked(interaction.user.id) or await self.is_guild_blocked(guild_id):
-            self._interact_waterfall.put((interaction.user.id, guild_id))
+            self._last_interact_waterfall.put(interaction.user.id)
         for kind, regex, mapping in (
             (InteractionType.modal_submit, modal_regex, self.raw_modal_submits),
             (InteractionType.component, component_regex, self.raw_component_submits),
@@ -246,10 +233,10 @@ class Dynamo(discord.AutoShardedClient):
                 fp.write(tree_hash)
 
     async def start(self, token: str, *, reconnect: bool = True) -> None:
-        self._interact_waterfall.start()
+        self._last_interact_waterfall.start()
         return await super().start(token, reconnect=reconnect)
 
     async def close(self) -> None:
         await super().close()
-        await self._interact_waterfall.stop()
+        await self._last_interact_waterfall.stop()
         await self.session.close()
