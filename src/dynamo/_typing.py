@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from typing import (
         Annotated,
         Any,
+        Literal,
         NamedTuple,
         NotRequired,
         Protocol,
@@ -47,6 +48,7 @@ else:
         if name in {
             "Annotated",
             "Any",
+            "Literal",
             "NamedTuple",
             "Protocol",
             "Self",
@@ -69,6 +71,7 @@ __all__ = (
     "TYPE_CHECKING",
     "Annotated",
     "Any",
+    "Literal",
     "NamedTuple",
     "NotRequired",
     "Protocol",
