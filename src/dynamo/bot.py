@@ -57,12 +57,17 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         return cls(client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs)
 
     async def interaction_check(self, interaction: Interaction, /) -> bool:
-        if not await interaction.client.is_blocked(interaction.user.id):
+        guild = interaction.guild
+        is_guild_interaction = guild is not None
+        is_guild_blocked = is_guild_interaction and await interaction.client.is_guild_blocked(guild.id)
+        is_user_blocked = await interaction.client.is_user_blocked(interaction.user.id)
+        is_blocked = (is_user_blocked or is_guild_blocked) if is_guild_interaction else is_user_blocked
+        if not is_blocked:
             return True
-        log.trace("%s is blocked", interaction.user)
+
         resp = interaction.response
         if interaction.type is InteractionType.application_command:
-            await resp.send_message("Blocked", ephemeral=True)
+            await resp.send_message("You or the current guild is blocked.", ephemeral=True)
         else:
             await resp.defer(ephemeral=True)
         return False
@@ -71,7 +76,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
-            msg = f"You're on cooldown. Try again in {rel_time}"
+            msg = f"You are on cooldown. Try again in {rel_time}"
             await interaction.response.send_message(msg, ephemeral=True, delete_after=error.retry_after)
             return
 
@@ -112,9 +117,10 @@ class Dynamo(discord.AutoShardedClient):
         self.session: aiohttp.ClientSession = session
         self.conn: apsw.Connection = conn
         self.read_conn: apsw.Connection = read_conn
-        self.block_cache: LRU[int, bool] = LRU[int, bool](512)
+        self.user_block_cache: LRU[int, bool] = LRU[int, bool](512)
+        self.guild_block_cache: LRU[int, bool] = LRU[int, bool](256)
         self.initial_exts: list[HasExports] = initial_exts
-        self._last_interact_waterfall = Waterfall(10, 100, self.update_last_seen)
+        self._last_interact_waterfall: Waterfall[int] = Waterfall(10, 100, self.update_last_seen)
 
     async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
         with self.conn:
@@ -129,7 +135,8 @@ class Dynamo(discord.AutoShardedClient):
             )
 
     async def on_interaction(self, interaction: Interaction) -> None:
-        if not await self.is_blocked(interaction.user.id):
+        guild_id = 0 if interaction.guild is None else interaction.guild.id
+        if not await self.is_user_blocked(interaction.user.id) or await self.is_guild_blocked(guild_id):
             self._last_interact_waterfall.put(interaction.user.id)
         for kind, regex, mapping in (
             (InteractionType.modal_submit, modal_regex, self.raw_modal_submits),
@@ -142,8 +149,9 @@ class Dynamo(discord.AutoShardedClient):
                     if rs := mapping.get(name):
                         await rs.raw_submit(interaction, data)
 
-    async def is_blocked(self, user_id: int) -> bool:
-        if (blocked := self.block_cache.get(user_id, None)) is not None:
+    async def is_user_blocked(self, user_id: int) -> bool:
+        blocked = self.user_block_cache.get(user_id, None)
+        if blocked is not None:
             return blocked
 
         is_blocked: bool = self.read_conn.execute(
@@ -155,11 +163,11 @@ class Dynamo(discord.AutoShardedClient):
             """,
             (user_id,),
         ).get
-        self.block_cache[user_id] = is_blocked
+        self.user_block_cache[user_id] = is_blocked
         return is_blocked
 
-    async def set_blocked(self, user_id: int, blocked: bool) -> None:
-        self.block_cache[user_id] = blocked
+    async def set_user_blocked(self, user_id: int, blocked: bool) -> None:
+        self.user_block_cache[user_id] = blocked
         with self.conn:
             self.conn.execute(
                 """
@@ -170,7 +178,36 @@ class Dynamo(discord.AutoShardedClient):
                 """,
                 (user_id, blocked),
             )
-        log.info("%s %d", "Blocked" if blocked else "Unblocked", user_id)
+
+    async def is_guild_blocked(self, guild_id: int) -> bool:
+        blocked = self.guild_block_cache.get(guild_id, None)
+        if blocked is not None:
+            return blocked
+
+        is_blocked: bool = self.read_conn.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM guilds
+                WHERE guild_id=? AND is_blocked LIMIT 1
+            );
+            """,
+            (guild_id,),
+        ).get
+        self.guild_block_cache[guild_id] = is_blocked
+        return is_blocked
+
+    async def set_guild_blocked(self, guild_id: int, blocked: bool) -> None:
+        self.guild_block_cache[guild_id] = blocked
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO guilds (guild_id, is_blocked)
+                VALUES (?, ?)
+                ON CONFLICT (guild_id)
+                DO UPDATE SET is_blocked=excluded.is_blocked
+                """,
+                (guild_id, blocked),
+            )
 
     async def setup_hook(self) -> None:
         for mod in self.initial_exts:

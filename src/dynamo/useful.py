@@ -12,6 +12,7 @@ from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
+from ._ac import cf_ac_cache_transform
 from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
@@ -224,14 +225,6 @@ class AssetView:
 async def get_assets(itx: Interaction, user: discord.Member | discord.User) -> None:
     view = AssetView()
     await view.start(itx, itx.user.id, user.id)
-
-
-def cf_ac_cache_transform(
-    args: tuple[Interaction, str], kwds: Mapping[str, object]
-) -> tuple[tuple[int, str], Mapping[str, object]]:
-    itx, current = args
-    assert itx.guild is not None, "Used in guild only commands"
-    return (itx.guild.id, current.casefold()), kwds
 
 
 @app_commands.command(name="interested", description="Get event hyperlink with list of attendees")
