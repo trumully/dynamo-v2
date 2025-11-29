@@ -95,13 +95,15 @@ async def get_pin_statistics(target: int, category: discord.CategoryChannel) -> 
     sorted_leaderboard = sorted(leaderboard.items(), key=operator.itemgetter(1), reverse=True)
     leaderboard_pages = chunk(sorted_leaderboard, 10)
 
-    user_best_channel: tuple[int, int] | None
+    user_best_channel: tuple[int, int] | None = None
     try:
         best_channel = max(user_pins, key=lambda k: len(user_pins[k]))
         best_messages = len(user_pins[best_channel])
         user_best_channel = (best_channel, best_messages)
-    except Exception:  # noqa: BLE001
-        user_best_channel = None
+    except (ValueError, TypeError):
+        pass
+    except Exception as ex:
+        log.exception("Unexpected error when getting pin statistics", exc_info=ex)
 
     return PinnedData(
         user=user_pins,
