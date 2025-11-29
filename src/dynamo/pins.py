@@ -10,7 +10,7 @@ from functools import partial
 
 import discord
 from async_utils.corofunc_cache import lrucorocache
-from async_utils.lru import LRU
+from async_utils.lru import TTLLRU
 from discord import app_commands, ui
 from discord.app_commands import AppCommandContext, Choice, Group
 
@@ -51,18 +51,20 @@ async def fetch_channel_pins(channel: discord.TextChannel) -> tuple[int, list[Pi
     return channel.id, [m async for m in channel.pins()]  # pyright: ignore[reportReturnType]
 
 
-_pins_lru: LRU[int, dict[int, list[PinnedMessage]]] = LRU(128)
+_pins_lru: TTLLRU[int, dict[int, list[PinnedMessage]]] = TTLLRU(128, 60 * 60 * 12)
+_lock = asyncio.Lock()
 
 
 async def get_pins(category: discord.CategoryChannel) -> dict[int, list[PinnedMessage]]:
-    existing = _pins_lru.get(category.id, None)
-    if existing is not None:
-        return existing
-    tasks = [fetch_channel_pins(c) for c in category.text_channels]
-    gathered = await asyncio.gather(*tasks)
-    result = dict(gathered)
-    _pins_lru[category.id] = result
-    return result
+    async with _lock:
+        existing = _pins_lru.get(category.id, None)
+        if existing is not None:
+            return existing
+        tasks = [fetch_channel_pins(c) for c in category.text_channels]
+        gathered = await asyncio.gather(*tasks)
+        result = dict(gathered)
+        _pins_lru[category.id] = result
+        return result
 
 
 def filter_pins_by_user(target_id: int, pins: dict[int, list[PinnedMessage]]) -> dict[int, list[PinnedMessage]]:
