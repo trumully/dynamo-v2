@@ -122,7 +122,9 @@ class PinsView:
     @classmethod
     async def placeholder(cls, itx: Interaction) -> None:
         await itx.edit_original_response(
-            view=ui.LayoutView().add_item(DynContainer().add_item(ui.TextDisplay("Loading. Please wait...")))
+            view=ui.LayoutView().add_item(
+                DynContainer().add_item(ui.TextDisplay("<a:_:1286858083552989265>  Loading. Please wait."))
+            )
         )
 
     @classmethod
