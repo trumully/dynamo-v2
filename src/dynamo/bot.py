@@ -11,23 +11,25 @@ Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
 
 from __future__ import annotations
 
+__lazy_modules__: list[str] = ["asyncio"]
+
 import datetime
 import re
 from collections.abc import Sequence
-from hashlib import blake2b
 
 import aiohttp
 import apsw
 import discord
+import msgspec
+import xxhash
 from async_utils.lru import LRU
 from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
-from discord.abc import Snowflake
 
 from . import _typing as t
 from ._types import HasExports, RawSubmittable
 from .logs import Logger, get_logger
-from .utils import dirs, resolve_path_with_links, to_json
+from .utils import dirs, resolve_path_with_links
 
 type Interaction = discord.Interaction[Dynamo]
 
@@ -36,17 +38,6 @@ log: Logger = get_logger(__name__)
 
 modal_regex: re.Pattern[str] = re.compile(r"^m:(.{1,10}):(.*)$", flags=re.DOTALL)
 component_regex: re.Pattern[str] = re.compile(r"^c:(.{1,10}):(.*)$", flags=re.DOTALL)
-
-
-def _hash_payload(payload: list[dict[str, object]]) -> bytes:
-    tree_hash = blake2b(digest_size=32, person=b"tree", last_node=True, usedforsecurity=False)
-    command_hashes = [
-        blake2b(to_json(c).encode(), person=b"command", last_node=False, usedforsecurity=False).digest() for c in payload
-    ]
-    for h in sorted(command_hashes):
-        tree_hash.update(h)
-
-    return b"v1:" + tree_hash.digest()
 
 
 class VersionedTree(app_commands.CommandTree["Dynamo"]):
@@ -73,29 +64,28 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         return False
 
     async def on_error(self, interaction: Interaction, error: app_commands.AppCommandError, /) -> None:
+        if interaction.extras.get("error_handled", False):
+            return
+
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
             rel_time = discord.utils.format_dt(fut, style="R")
-            msg = f"You are on cooldown. Try again in {rel_time}"
+            msg = f"You are on cooldown. Try again {rel_time}"
             await interaction.response.send_message(msg, ephemeral=True, delete_after=error.retry_after)
             return
 
         await super().on_error(interaction, error)
 
-    async def _get_payload(self, *, guild: Snowflake | None = None) -> list[dict[str, object]]:
-        commands = self._get_all_commands(guild=guild)
+    async def get_hash(self) -> bytes:
+        coms = sorted(self._get_all_commands(guild=None), key=lambda c: c.qualified_name)
 
         translator = self.translator
-        if translator is not None:
-            payload = [await cmd.get_translated_payload(self, translator) for cmd in commands]
+        if translator:
+            payload = [await c.get_translated_payload(self, translator) for c in coms]
         else:
-            payload = [cmd.to_dict(self) for cmd in commands]
+            payload = [c.to_dict(self) for c in coms]
 
-        return payload
-
-    async def get_hash(self, *, guild: Snowflake | None = None) -> bytes:
-        payload = await self._get_payload(guild=guild)
-        return _hash_payload(payload)
+        return xxhash.xxh64_digest(msgspec.msgpack.encode(payload), seed=0)
 
 
 class Dynamo(discord.AutoShardedClient):
@@ -228,6 +218,7 @@ class Dynamo(discord.AutoShardedClient):
         with path.open("r+b") as fp:
             data = fp.read()
             if data != tree_hash:
+                log.info("Tree hash change detected, syncing all commands")
                 await self.tree.sync()
                 fp.seek(0)
                 fp.write(tree_hash)

@@ -72,9 +72,9 @@ class Color(DiscordColor):
             k = (n + hue / 30) % 12
 
             color = lum - a * max(min((k - 3, 9 - k, 1)), -1)
-            return f"{round(255 * color):x}"
+            return round(255 * color)
 
-        return t.cast("t.Self", cls.from_str(f"#{f(0)}{f(8)}{f(4)}"))
+        return cls.from_rgb(f(0), f(8), f(4))
 
     @classmethod
     def white(cls: type[t.Self]) -> t.Self:
@@ -85,4 +85,4 @@ class Color(DiscordColor):
         return cls.default()
 
 
-__all__ = ("Color",)
+__all__: tuple[str, ...] = ("Color",)

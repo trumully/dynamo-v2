@@ -13,7 +13,7 @@ from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
 from ._ac import cf_ac_cache_transform
-from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
+from ._types import ActionRow, BotExports, Container
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .utils import b2048pack, b2048unpack
@@ -77,10 +77,6 @@ async def fetch_banner(itx: Interaction, user: discord.Member | discord.User) ->
 
 class AssetView:
     @staticmethod
-    def custom_id(*to_pack: object) -> str:
-        return "c:asset:" + b2048pack(to_pack)
-
-    @staticmethod
     def setup(
         name: str,
         url: str,
@@ -89,7 +85,7 @@ class AssetView:
         size: int,
         *,
         is_animated: bool = False,
-    ) -> DynContainer:
+    ) -> Container:
         text = f"# {name}'s {kind.lower()}"
         text += f"\n**Format:** `{fmt}`       |       **Size:** `{size}`"
         if is_animated:
@@ -98,7 +94,7 @@ class AssetView:
                 text += "Select `png` format and click `View` to see the animation."
             else:
                 text += "Select `gif` format to view."
-        return DynContainer(
+        return Container(
             ui.TextDisplay(text),
             ui.MediaGallery(components.MediaGalleryItem(url)),
             ui.Separator(visible=False),
@@ -150,54 +146,52 @@ class AssetView:
 
         c = cls.setup(user.name, asset.url, image_kind, file_type, size, is_animated=asset.is_animated())
 
-        btns = DynRow()
-
         avatar_format = "gif" if avatar.is_animated() else "png"
-        c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)
-        btns.add_item(
-            DynButton(
+        banner_format = "gif" if banner is not None and banner.is_animated() else "png"
+        row = ActionRow(
+            ui.Button(
                 label="Avatar",
-                custom_id=c_id,
+                custom_id="c:asset:" + b2048pack(("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)),
                 style=ButtonStyle.blurple,
                 disabled=image_kind is Asset.AVATAR,
-            )
-        )
-
-        banner_format = "gif" if banner is not None and banner.is_animated() else "png"
-        c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, banner_format, size)
-        btns.add_item(
-            DynButton(
+            ),
+            ui.Button(
                 label="Banner",
-                custom_id=c_id,
+                custom_id="c:asset:" + b2048pack(("banner", user_id, target_id, Asset.BANNER, banner_format, size)),
                 style=ButtonStyle.blurple,
                 disabled=banner is None or image_kind is Asset.BANNER,
-            )
-        )
-
-        # Animated decorations are an animated png so use png no matter what
-        c_id = cls.custom_id("deco", user_id, target_id, Asset.DECO, "png", size)
-        btns.add_item(
-            DynButton(
+            ),
+            ui.Button(
                 label="Decoration",
-                custom_id=c_id,
+                custom_id="c:asset:" + b2048pack(("deco", user_id, target_id, Asset.DECO, "png", size)),
                 style=ButtonStyle.blurple,
                 disabled=decoration is None or image_kind is Asset.DECO,
+            ),
+            ui.Button(label="View", url=asset.url, style=ButtonStyle.url),
+        )
+
+        c.add_item(row).add_item(ui.Separator(visible=False))
+
+        format_opts = ASSET_FORMAT_OPTIONS if asset.is_animated() and image_kind is not Asset.DECO else STATIC_FORMAT_OPTIONS
+        c.add_item(
+            ActionRow(
+                ui.Select(
+                    placeholder="Set format",
+                    custom_id="c:asset:" + b2048pack(("format", user_id, target_id, image_kind, file_type, size)),
+                    options=format_opts,
+                )
             )
         )
-        btns.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
-        c.add_item(btns).add_item(ui.Separator(visible=False))
-
-        c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
-        row = DynRow()
-        options = ASSET_FORMAT_OPTIONS if asset.is_animated() and image_kind is not Asset.DECO else STATIC_FORMAT_OPTIONS
-        row.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
-        c.add_item(row)
-
-        c_id = cls.custom_id("size", user_id, target_id, image_kind, file_type, size)
-        row = DynRow()
-        row.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
-        c.add_item(row)
+        c.add_item(
+            ActionRow(
+                ui.Select(
+                    placeholder="Change size",
+                    custom_id="c:asset:" + b2048pack(("size", user_id, target_id, image_kind, file_type, size)),
+                    options=SIZE_OPTIONS,
+                )
+            )
+        )
 
         method = send if initial else edit
         await method(view=ui.LayoutView().add_item(c))

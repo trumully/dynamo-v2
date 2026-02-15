@@ -16,7 +16,7 @@ from discord.app_commands import AppCommandContext, Choice, Group
 
 from . import _typing as t
 from ._ac import cf_ac_cache_transform
-from ._types import BotExports, DynButton, DynContainer, DynRow, DynUserSelect
+from ._types import ActionRow, BotExports, Container
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .utils import b2048pack, b2048unpack
@@ -121,11 +121,8 @@ async def get_pin_statistics(target: int, category: discord.CategoryChannel) -> 
 class PinsView:
     @classmethod
     async def placeholder(cls, itx: Interaction) -> None:
-        await itx.edit_original_response(
-            view=ui.LayoutView().add_item(
-                DynContainer().add_item(ui.TextDisplay("<a:_:1286858083552989265>  Loading. Please wait."))
-            )
-        )
+        c = Container(ui.TextDisplay("<a:_:1286858083552989265>  Loading. Please wait."))
+        await itx.edit_original_response(view=ui.LayoutView().add_item(c))
 
     @classmethod
     async def start(cls, itx: Interaction, target_id: int, category_id: int, *, deferred: bool) -> None:
@@ -149,14 +146,11 @@ class PinsView:
         category: discord.CategoryChannel = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType]
         data = await get_pin_statistics(target_id, category)
 
-        c = DynContainer()
+        c = Container(ui.TextDisplay("# Pins All-time Rankings"))
 
-        c.add_item(ui.TextDisplay("# Pins All-time Rankings"))
-        row = DynRow()
-        c_id = "c:pins:" + b2048pack(("user", itx.user.id, target_id, category_id, index))
-        row.add_item(
-            DynUserSelect(
-                custom_id=c_id,
+        row = ActionRow(
+            ui.UserSelect(
+                custom_id="c:pins:" + b2048pack(("user", itx.user.id, target_id, category_id, index)),
                 default_values=[discord.SelectDefaultValue(id=target_id, type=discord.SelectDefaultValueType.user)],
             )
         )
@@ -177,18 +171,30 @@ class PinsView:
         text += f"\n-# Page: {index + 1} / {len(data.leaderboard_pages)}"
         c.add_item(ui.TextDisplay(text))
 
-        row = DynRow()
-        c_id = "c:pins:" + b2048pack(("last", itx.user.id, target_id, category_id, 0))
-        row.add_item(DynButton(label="<<", custom_id=c_id, disabled=index == 0))
-        previous = max(index - 1, 0)
-        c_id = "c:pins:" + b2048pack(("previous", itx.user.id, target_id, category_id, previous))
-        row.add_item(DynButton(label="<", custom_id=c_id, disabled=index == 0))
-        next_ = min(index + 1, len(data.leaderboard_pages) - 1)
-        c_id = "c:pins:" + b2048pack(("next", itx.user.id, target_id, category_id, next_))
-        row.add_item(DynButton(label=">", custom_id=c_id, disabled=index == len(data.leaderboard_pages) - 1))
-        c_id = "c:pins:" + b2048pack(("last", itx.user.id, target_id, category_id, len(data.leaderboard_pages) - 1))
-        row.add_item(DynButton(label=">>", custom_id=c_id, disabled=index == len(data.leaderboard_pages) - 1))
-        c.add_item(row)
+        row = ActionRow(
+            ui.Button(
+                label="<<",
+                custom_id="c:pins:" + b2048pack(("last", itx.user.id, target_id, category_id, 0)),
+                disabled=index == 0,
+            ),
+            ui.Button(
+                label="<",
+                custom_id="c:pins:" + b2048pack(("previous", itx.user.id, target_id, category_id, max(index - 1, 0))),
+                disabled=index == 0,
+            ),
+            ui.Button(
+                label=">",
+                custom_id="c:pins:"
+                + b2048pack(("next", itx.user.id, target_id, category_id, min(index + 1, len(data.leaderboard_pages) - 1))),
+                disabled=index == len(data.leaderboard_pages) - 1,
+            ),
+            ui.Button(
+                label=">>",
+                custom_id="c:pins:"
+                + b2048pack(("last", itx.user.id, target_id, category_id, len(data.leaderboard_pages) - 1)),
+                disabled=index == len(data.leaderboard_pages) - 1,
+            ),
+        )
 
         view = ui.LayoutView()
         view.add_item(c)
