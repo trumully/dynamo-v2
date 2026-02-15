@@ -48,7 +48,7 @@ class PinnedData(t.NamedTuple):
 
 
 async def fetch_channel_pins(channel: discord.TextChannel) -> tuple[int, list[PinnedMessage]]:
-    return channel.id, [m async for m in channel.pins()]  # pyright: ignore[reportReturnType]
+    return channel.id, [m async for m in channel.pins()]  # ty:ignore[invalid-return-type]
 
 
 _pins_lru: TTLLRU[int, dict[int, list[PinnedMessage]]] = TTLLRU(128, 60 * 60 * 12)
@@ -143,7 +143,7 @@ class PinsView:
         edit = itx.edit_original_response if deferred else itx.response.edit_message
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
-        category: discord.CategoryChannel = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType]
+        category: discord.CategoryChannel = itx.guild.get_channel(category_id)  # ty:ignore[invalid-assignment]
         data = await get_pin_statistics(target_id, category)
 
         c = Container(ui.TextDisplay("# Pins All-time Rankings"))
@@ -274,7 +274,7 @@ async def pinned_get(itx: Interaction, user: (discord.Member | discord.User) | N
 
     category_id = row[0]
 
-    category: discord.CategoryChannel | None = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType]
+    category: discord.CategoryChannel | None = itx.guild.get_channel(category_id)  # ty:ignore[invalid-assignment]
     if category is None:
         await itx.edit_original_response(content="That category no longer exists. Please set a new category.")
         with itx.client.conn:

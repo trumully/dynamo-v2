@@ -49,10 +49,11 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
 
     async def interaction_check(self, interaction: Interaction, /) -> bool:
         guild = interaction.guild
-        is_guild_interaction = guild is not None
-        is_guild_blocked = is_guild_interaction and await interaction.client.is_guild_blocked(guild.id)
+        is_guild_blocked: bool = False
+        if guild is not None:
+            is_guild_blocked = await interaction.client.is_guild_blocked(guild.id)
         is_user_blocked = await interaction.client.is_user_blocked(interaction.user.id)
-        is_blocked = (is_user_blocked or is_guild_blocked) if is_guild_interaction else is_user_blocked
+        is_blocked = (is_user_blocked or is_guild_blocked) if guild is not None else is_user_blocked
         if not is_blocked:
             return True
 
@@ -63,7 +64,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             await resp.defer(ephemeral=True)
         return False
 
-    async def on_error(self, interaction: Interaction, error: app_commands.AppCommandError, /) -> None:
+    async def on_error(self, interaction: Interaction, error: app_commands.AppCommandError, /) -> None:  # ty:ignore[invalid-method-override]
         if interaction.extras.get("error_handled", False):
             return
 

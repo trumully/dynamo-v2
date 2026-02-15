@@ -123,6 +123,68 @@ mikeshardmind-async-utils = { git = "https://github.com/mikeshardmind/async-util
 discord-py = { git = "https://github.com/Rapptz/discord.py" }
 dynaconf = { git = "https://github.com/dynaconf/dynaconf" }
 
+[tool.ty.src]
+include = ["src"]
+exclude = [
+    "**/__pycache__",
+    "build",
+    "dist",
+    "docs",
+]
+
+[tool.ty.rules]
+invalid-type-form = "error"
+unresolved-import = "error"
+unresolved-reference = "error"
+invalid-type-variable-bound = "error"
+invalid-type-variable-constraints = "error"
+invalid-type-variable-default = "error"
+call-abstract-method = "error"
+abstract-method-in-final-class = "error"
+invalid-argument-type = "error"
+type-assertion-failure = "error"
+assert-type-unspellable-subtype = "error"
+invalid-assignment = "error"
+invalid-attribute-access = "error"
+unresolved-attribute = "error"
+call-non-callable = "error"
+too-many-positional-arguments = "error"
+missing-argument = "error"
+unknown-argument = "error"
+invalid-overload = "error"
+useless-overload-body = "error"
+no-matching-overload = "error"
+index-out-of-bounds = "error"
+invalid-type-arguments = "error"
+unsupported-operator = "error"
+invalid-return-type = "error"
+missing-typed-dict-key = "error"
+invalid-method-override = "error"
+override-of-final-variable = "error"
+override-of-final-method = "error"
+subclass-of-final-class = "error"
+conflicting-declarations = "error"
+invalid-context-manager = "error"
+possibly-missing-attribute = "error"
+possibly-missing-implicit-call = "error"
+not-iterable = "error"
+not-subscriptable = "error"
+invalid-declaration = "error"
+zero-stepsize-in-slice = "error"
+cyclic-class-definition = "error"
+cyclic-type-alias-definition = "error"
+unsupported-base = "error"
+unsupported-dynamic-base = "error"
+deprecated = "warn"
+redundant-cast = "warn"
+unused-type-ignore-comment = "warn"
+unused-ignore-comment = "warn"
+possibly-missing-import = "warn"
+unavailable-implicit-super-arguments = "ignore"
+invalid-explicit-override = "ignore"
+invalid-named-tuple = "ignore"
+empty-body = "ignore"
+
 [tool.pyright]
 include = ["src"]
 exclude = [

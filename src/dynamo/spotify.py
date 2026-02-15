@@ -36,7 +36,7 @@ MEDIUM = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_MEDIUM 
 LARGE = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_LARGE - 10)
 
 WHITE = Color.white().to_rgb()
-PAINT_WHITE = Paint(t.cast("TextColor", (*WHITE, 255)))  # pyright: ignore[reportUnknownArgumentType, reportUndefinedVariable]
+PAINT_WHITE = Paint(t.cast("TextColor", (*WHITE, 255)))  # ty:ignore[unresolved-reference]
 GRAY = (80, 80, 80)
 
 BLUR = ImageFilter.GaussianBlur(radius=30)

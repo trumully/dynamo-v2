@@ -32,7 +32,7 @@ Section = ui.Section[ui.LayoutView]
 Container = ui.Container[ui.LayoutView]
 ActionRow = ui.ActionRow[ui.LayoutView]
 
-type ACommand = Command[t.Any, t.Any, t.Any]
+type ACommand = Command[t.Any, ..., t.Any]
 type AppCommandTypes = Group | ACommand | ContextMenu
 type RawSubmittable = RawSubmittableCls | RawSubmittableStatic
 

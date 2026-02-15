@@ -27,7 +27,7 @@ else:
 
     def f__call__[**P, R](self, c: Callable[P, R], /) -> CoroFunc[P, R]: ...  # noqa: ANN001
 
-    type CoroDeco = type("CoroDeco", (t.Protocol,), {"__call__": f__call__})
+    type CoroDeco = type("CoroDeco", (t.Protocol,), {"__call__": f__call__})  # ty:ignore[invalid-type-form, unsupported-dynamic-base]
 
 _WRAP_ASSIGN = ("__module__", "__name__", "__qualname__", "__doc__")
 

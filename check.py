@@ -2,7 +2,7 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "ruff~=0.14.4",
-#     "basedpyright~=1.33.0",
+#     "ty~=0.0.17",
 # ]
 # ///
 
@@ -65,7 +65,8 @@ def main() -> None:
         run("uv", "run", "ruff", "check")
         run("uv", "run", "ruff", "format", "--diff")
 
-    run("uv", "run", "basedpyright", "--warnings")
+    format_flag = ("--output-format", "github" if _IS_GITHUB_ACTIONS else "full")
+    run("uv", "run", "ty", "check", "--error-on-warning", *format_flag)
 
 
 if __name__ == "__main__":
