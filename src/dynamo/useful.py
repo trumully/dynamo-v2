@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from enum import StrEnum
 from functools import partial
 
@@ -12,6 +11,7 @@ from discord.asset import VALID_ASSET_FORMATS, VALID_STATIC_FORMATS
 from discord.components import SelectOption
 from discord.enums import ButtonStyle
 
+from . import _typings as t
 from ._ac import cf_ac_cache_transform
 from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
 from .bot import Interaction
@@ -51,8 +51,8 @@ AssetData = tuple[str, int, int, Asset, Format, int]
 
 
 def _fetch_banner_transform(
-    args: tuple[Interaction, discord.Member | discord.User], kwds: Mapping[str, object]
-) -> tuple[tuple[int], Mapping[str, object]]:
+    args: tuple[Interaction, discord.Member | discord.User], kwds: t.Mapping[str, object]
+) -> tuple[tuple[int], t.Mapping[str, object]]:
     _itx, user = args
     return (user.id,), kwds
 
@@ -235,22 +235,19 @@ async def interested(itx: Interaction, event: str) -> None:
 
     try:
         actual_event = itx.guild.get_scheduled_event(int(event))
-
-        if actual_event is None:
+        if actual_event is not None:
+            msg = f"`[{actual_event.name}]({actual_event.url}) {' '.join([u.mention async for u in actual_event.users() if u.id != itx.user.id]) or 'None interested'}`"
+        else:
             # Cancelled/ended during invocation or stale cache
-            await itx.response.send_message("That event was recently cancelled, ended, or does not exist.", ephemeral=True)
-            return
-
-        users_interested = " ".join([u.mention async for u in actual_event.users()])
-        content = f"`[{actual_event.name}]({actual_event.url}) {users_interested or 'None interested'}`"
-
-        await itx.response.send_message(content, ephemeral=True)
+            msg = "That event was recently cancelled, ended, or does not exist."
     except ValueError:
         # A valid event will return as the scheduled event id in string form.
-        await itx.response.send_message("Not a valid scheduled event in this server.", ephemeral=True)
+        msg = "Not a valid scheduled event in this server"
     except Exception as ex:
         log.exception("Couldn't get event", exc_info=ex)
-        await itx.response.send_message("Could not get that event. Is it a scheduled event in this guild?", ephemeral=True)
+        msg = "Could not get that event. Is it a scheduled event in this guild?"
+
+    await itx.response.send_message(msg, ephemeral=True)
 
 
 @interested.autocomplete("event")

@@ -1,8 +1,8 @@
 # /// script
-# requires-python = ">=3.13"
+# requires-python = ">=3.14.0"
 # dependencies = [
-#     "ruff~=0.14.4",
-#     "basedpyright~=1.33.0",
+#     "ruff>=0.15.19",
+#     "basedpyright~=1.39.8",
 # ]
 # ///
 
@@ -10,48 +10,27 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections.abc import Generator
-from contextlib import contextmanager
-from subprocess import Popen
+import subprocess
 
 _IS_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 
-@contextmanager
-def github_action(name: str) -> Generator[None]:
+def run(*command: str) -> None:
+    group = f"Running {' '.join(str(c) for c in command)}"
+    if _IS_GITHUB_ACTIONS:
+        print(f"::group::{group}", flush=True)
+    else:
+        print(group)
+
     try:
-        if _IS_GITHUB_ACTIONS:
-            print(f"::group::{name}", flush=True)
-        else:
-            print(name)
-        yield
+        subprocess.run(command, check=True)
     finally:
         if _IS_GITHUB_ACTIONS:
             print("::endgroup::", flush=True)
 
 
-def run(*command: str) -> None:
-    msg = f"Running {' '.join(str(c) for c in command)}"
-    with github_action(msg):
-        process = Popen[bytes](command)
-        try:
-            process.wait()
-        except KeyboardInterrupt:
-            process.terminate()
-            process.wait()
-        finally:
-            if process.returncode != 0:
-                msg = f"Failed with code {process.returncode}"
-                raise RuntimeError(msg)
-
-
 def main() -> None:
-    os.umask(0o077)
-
-    os.unsetenv("VIRTUAL_ENV")  # Prevents warnings when running uv
-
-    if _IS_GITHUB_ACTIONS:
-        os.environ["RUFF_OUTPUT_FORMAT"] = "github"
+    os.unsetenv("VIRTUAL_ENV")
 
     parser = argparse.ArgumentParser(description="Check format, types, linting")
     excl = parser.add_mutually_exclusive_group()
@@ -64,8 +43,7 @@ def main() -> None:
     else:
         run("uv", "run", "ruff", "check")
         run("uv", "run", "ruff", "format", "--diff")
-
-    run("uv", "run", "basedpyright", "--warnings")
+        run("uv", "run", "basedpyright", "--warnings")
 
 
 if __name__ == "__main__":

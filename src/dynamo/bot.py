@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import datetime
 import re
-from collections.abc import Sequence
 from hashlib import blake2b
 
 import aiohttp
@@ -24,7 +23,7 @@ from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
 
-from . import _typing as t
+from . import _typings as t
 from ._types import HasExports, RawSubmittable
 from .logs import Logger, get_logger
 from .utils import dirs, resolve_path_with_links, to_json
@@ -56,6 +55,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
         contexts = app_commands.AppCommandContext(dm_channel=True, guild=True, private_channel=True)
         return cls(client, fallback_to_global=False, allowed_contexts=contexts, allowed_installs=installs)
 
+    @t.override
     async def interaction_check(self, interaction: Interaction, /) -> bool:
         guild = interaction.guild
         is_guild_interaction = guild is not None
@@ -72,6 +72,7 @@ class VersionedTree(app_commands.CommandTree["Dynamo"]):
             await resp.defer(ephemeral=True)
         return False
 
+    @t.override
     async def on_error(self, interaction: Interaction, error: app_commands.AppCommandError, /) -> None:
         if isinstance(error, app_commands.CommandOnCooldown):
             fut = discord.utils.utcnow() + datetime.timedelta(seconds=error.retry_after)
@@ -107,13 +108,13 @@ class Dynamo(discord.AutoShardedClient):
         conn: apsw.Connection,
         read_conn: apsw.Connection,
         initial_exts: list[HasExports],
-        **kwargs: object,
+        connector: aiohttp.BaseConnector | None = None,
     ) -> None:
         intents = discord.Intents.none() if intents is None else intents
-        super().__init__(*args, intents=intents, **kwargs)  # pyright: ignore[reportArgumentType] - unpacked typed dict
-        self.tree: VersionedTree = VersionedTree.from_dynamo(self)
+        super().__init__(*args, intents=intents, connector=connector)
         self.raw_modal_submits: dict[str, RawSubmittable] = {}
         self.raw_component_submits: dict[str, RawSubmittable] = {}
+        self.tree: VersionedTree = VersionedTree.from_dynamo(self)
         self.session: aiohttp.ClientSession = session
         self.conn: apsw.Connection = conn
         self.read_conn: apsw.Connection = read_conn
@@ -122,7 +123,7 @@ class Dynamo(discord.AutoShardedClient):
         self.initial_exts: list[HasExports] = initial_exts
         self._last_interact_waterfall: Waterfall[int] = Waterfall(10, 100, self.update_last_seen)
 
-    async def update_last_seen(self, user_ids: Sequence[int], /) -> None:
+    async def update_last_seen(self, user_ids: t.Sequence[int], /) -> None:
         with self.conn:
             self.conn.executemany(
                 """

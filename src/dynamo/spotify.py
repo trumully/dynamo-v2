@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from functools import partial
 from io import BytesIO
 
@@ -8,17 +7,16 @@ import aiohttp
 import discord
 from async_utils.task_cache import lrutaskcache
 from discord import app_commands
+from imagetext_py import Color as FontColor
 from imagetext_py import FontDB, Paint, Writer
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from . import _typing as t
+from . import _typings as t
 from ._types import BotExports
 from .bot import Interaction
 from .color import Color
 from .logs import Logger, get_logger
-from .utils import ROOT
-from .utils.formatting import human_join
-from .utils.wrappers import afunc
+from .utils import ROOT, afunc, human_join
 
 log: Logger = get_logger(__name__)
 
@@ -36,7 +34,7 @@ MEDIUM = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_MEDIUM 
 LARGE = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_LARGE - 10)
 
 WHITE = Color.white().to_rgb()
-PAINT_WHITE = Paint(t.cast("TextColor", (*WHITE, 255)))  # pyright: ignore[reportUnknownArgumentType, reportUndefinedVariable]
+PAINT_WHITE = Paint(FontColor(*WHITE, 255))
 GRAY = (80, 80, 80)
 
 BLUR = ImageFilter.GaussianBlur(radius=30)
@@ -60,8 +58,8 @@ LOGO_URL = "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Prim
 
 
 def url_cache_transform(
-    args: tuple[aiohttp.ClientSession, str], kwargs: Mapping[str, object]
-) -> tuple[tuple[str], Mapping[str, object]]:
+    args: tuple[aiohttp.ClientSession, str], kwargs: t.Mapping[str, object]
+) -> tuple[tuple[str], t.Mapping[str, object]]:
     _client, url = args
     return (url.casefold(),), kwargs
 

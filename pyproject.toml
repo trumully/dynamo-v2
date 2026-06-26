@@ -7,6 +7,7 @@ dynamo = "dynamo.cli:main"
 
 [tool.ruff]
 line-length = 125
+target-version = "py314"
 preview = true
 
 [tool.ruff.format]
@@ -20,6 +21,7 @@ select = [
     "Q", "Q003", "RET", "RSE", "RUF", "S", "SIM", "SLOT", "T20", "TC", "TID",
     "TRY", "UP", "YTT"
 ]
+typing-modules= ["dynamo._typings"]
 ignore = [
     "DOC201", # Not docing generic return types
     "DOC501", # Not explicitly documenting raised exception types
@@ -63,14 +65,12 @@ unfixable = [
     "ERA",      # Don't delete commented out code
 ]
 
-
 [tool.ruff.lint.per-file-ignores]
 "check.py" = [
     "T201",     # Printing here is fine 
     "S603",     # Input here is trusted
     "S404",     # I know the implications, I trust myself
 ]
-
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -86,6 +86,13 @@ convention = "google"
 "typing.runtime_checkable".msg = "Runtime checkable is fundamentally unsafe."
 "typing_extensions.runtime_checkable".msg = "Runtime checkable is fundamentally unsafe."
 
+# these don't work as deferred imports, intentionally, because type checkers are dumb
+# and require they be imported directly from typing to work, this breaks the deferred re-export.
+"typing.Final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
+"typing_extensions.Final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
+"typing.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
+"typing_extensions.final".msg = "see https://github.com/microsoft/pyright/issues/9664#issuecomment-2574042580"
+
 
 [project]
 version = "0.1.0"
@@ -93,7 +100,7 @@ name = "dynamo"
 description = "\"A discord bot\""
 readme = "README.md"
 license = { text = "Unlicense" }
-requires-python = "~=3.13.0"
+requires-python = ">=3.14.0"
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: The Unlicense (Unlicense)",
@@ -104,7 +111,6 @@ classifiers = [
 dependencies = [
     "apsw>=3.49.1.0",
     "discord-py>=2.7.0",
-    "dynaconf>=3.2.12",
     "imagetext-py>=2.2.0",
     "mikeshardmind-async-utils>=2025.8.3b",
     "mikeshardmind-base2048>=1.0.3",
@@ -120,20 +126,12 @@ source = "https://github.com/trumully/dynamo-v2"
 [tool.uv.sources]
 mikeshardmind-async-utils = { git = "https://github.com/mikeshardmind/async-utils" }
 discord-py = { git = "https://github.com/Rapptz/discord.py" }
-dynaconf = { git = "https://github.com/dynaconf/dynaconf" }
 
 [tool.pyright]
 include = ["src"]
-exclude = [
-    "**/__pycache__",
-    "build",
-    "dist",
-    "docs",
-]
 
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 pythonPlatform = "All"
-
 
 # strict doesn't allow turning off / downgrading severity of rules
 typeCheckingMode = "standard"
@@ -255,3 +253,10 @@ strictSetInference = true
 reportImplicitStringConcatenation = "none"
 reportUnusedCallResult = "none"
 reportDuplicateImport = "none"  # handled by ruff
+
+[tool.ty.environment]
+python-platform = "all"
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["src"]

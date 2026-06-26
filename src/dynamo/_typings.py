@@ -28,11 +28,12 @@ from __future__ import annotations
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine, Generator, Mapping, Sequence
     from typing import (
         Annotated,
         Any,
-        Literal,
         NamedTuple,
+        Never,
         NotRequired,
         Protocol,
         Self,
@@ -40,28 +41,47 @@ if TYPE_CHECKING:
         TypeVar,
         Unpack,
         cast,
-        overload,
+        override,
     )
 else:
+
+    def override(method: object, /) -> object:
+        return method
+
+    def cast(_typ: object, val: object, /) -> object:
+        return val
 
     def __getattr__(name: str):
         if name in {
             "Annotated",
             "Any",
-            "Literal",
             "NamedTuple",
+            "Never",
+            "NotRequired",
             "Protocol",
             "Self",
-            "TypedDict",
             "TypeVar",
+            "TypedDict",
             "Unpack",
-            "NotRequired",
-            "cast",
-            "overload",
         }:
             import typing
 
             return getattr(typing, name)
+        if name in {
+            "Callable",
+            "Coroutine",
+            "Generator",
+            "Mapping",
+            "Sequence",
+        }:
+            import collections.abc
+
+            return getattr(collections.abc, name)
+
+        if name == "cast":
+            return cast
+        if name == "override":
+            return override
 
         msg = f"module {__name__!r} has no attribute {name!r}"
         raise AttributeError(msg)
@@ -71,14 +91,19 @@ __all__ = (
     "TYPE_CHECKING",
     "Annotated",
     "Any",
-    "Literal",
+    "Callable",
+    "Coroutine",
+    "Generator",
+    "Mapping",
     "NamedTuple",
+    "Never",
     "NotRequired",
     "Protocol",
     "Self",
+    "Sequence",
     "TypeVar",
     "TypedDict",
     "Unpack",
     "cast",
-    "overload",
+    "override",
 )

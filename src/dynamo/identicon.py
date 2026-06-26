@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Mapping
 from enum import StrEnum, auto
 from functools import lru_cache, partial
 from io import BytesIO
@@ -11,16 +10,17 @@ import discord
 from discord import app_commands
 from PIL import Image
 
+from . import _typings as t
 from ._types import BotExports
 from .bot import Interaction
 from .color import Color
 from .logs import Logger, get_logger
-from .utils.wrappers import afunc
+from .utils import afunc
 
 log: Logger = get_logger(__name__)
 
 
-hash_kwargs: Mapping[str, object] = {"usedforsecurity": False}
+hash_kwargs: t.Mapping[str, object] = {"usedforsecurity": False}
 
 
 class Algorithm(StrEnum):
@@ -68,9 +68,9 @@ def generate_color(digest: str, /) -> Color:
     color = digest[-7:]
 
     hue = remap(color[:3], 0, 4095, 0, 360)
-    sat = remap(color[3:5], 0, 255, 0, 20)
-    lum = remap(color[5:7], 0, 255, 0, 20)
-    return Color.from_hsl(hue, 65.0 - sat, 75.0 - lum)
+    sat = remap(color[3:5], 0, 255, 0, 20) / 100
+    lum = remap(color[5:7], 0, 255, 0, 20) / 100
+    return Color.from_hsl(hue, 0.65 - sat, 0.75 - lum)
 
 
 @afunc()

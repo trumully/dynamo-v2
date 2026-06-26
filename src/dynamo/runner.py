@@ -27,11 +27,10 @@ import apsw.bestpractice
 import discord
 from async_utils.sig_service import SignalService, SpecialExit
 
-from . import _typing as t
-from ._config import get_token
+from . import _typings as t
 from ._types import HasExports
 from .logs import Logger, get_logger, with_logging
-from .utils import dirs, to_json
+from .utils import dirs, get_token, to_json
 
 log: Logger = get_logger(__name__)
 
@@ -58,9 +57,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     )
     session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
 
-    from . import identicon, pins, spotify, useful
+    from . import identicon, pins, useful
 
-    initial_exts: list[HasExports] = [identicon, pins, spotify, useful]
+    initial_exts: list[HasExports] = [identicon, pins, useful]
 
     from .bot import Dynamo
 
@@ -139,7 +138,7 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
                         "exception": exc,
                         "task": task,
                     })
-            except (asyncio.InvalidStateError, asyncio.CancelledError):
+            except asyncio.InvalidStateError, asyncio.CancelledError:
                 pass
 
         asyncio.set_event_loop(None)

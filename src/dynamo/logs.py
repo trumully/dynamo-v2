@@ -15,13 +15,12 @@ import logging
 import logging.handlers
 import os
 import sys
-from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from queue import SimpleQueue
 
 import apsw.ext
 
-from . import _typing as t
+from . import _typings as t
 from .utils import dirs, resolve_path_with_links
 
 _T_contra = t.TypeVar("_T_contra", contravariant=True)
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
         exc_info: _ExcInfoType
         stack_info: bool
         stacklevel: int
-        extra: Mapping[str, object] | None
+        extra: t.Mapping[str, object] | None
 
 else:
     BaseLogger: type[logging.Logger] = logging.getLoggerClass()
@@ -77,6 +76,7 @@ class KnownWarningFilter(logging.Filter):
     known_messages: tuple[str, ...] = (
         "Guilds intent seems to be disabled. This may cause state related issues.",
         "PyNaCl is not installed, voice will NOT be supported",
+        "davey is not installed, voice will NOT be supported",
     )
 
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
@@ -131,7 +131,7 @@ def use_color_formatting(stream: Stream[str], /) -> bool:
 
 
 @contextmanager
-def with_logging() -> Generator[None]:
+def with_logging() -> t.Generator[None]:
     q: SimpleQueue[t.Any] = SimpleQueue()
     q_handler = logging.handlers.QueueHandler(q)
     q_handler.addFilter(KnownWarningFilter())

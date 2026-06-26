@@ -11,14 +11,12 @@ Copyright (C) 2020 Michael Hall <https://github.com/mikeshardmind>
 
 from __future__ import annotations
 
-from collections.abc import Coroutine
-
 import apsw
 from discord import Interaction as DInter
 from discord import ui
 from discord.app_commands import Command, ContextMenu, Group
 
-from . import _typing as t
+from . import _typings as t
 
 
 class DynamoLike(t.Protocol):
@@ -26,7 +24,7 @@ class DynamoLike(t.Protocol):
     read_conn: apsw.Connection
 
 
-type Coro[T: object = t.Any] = Coroutine[None, None, T]
+type Coro[T: object = t.Any] = t.Coroutine[None, None, T]
 
 
 class RawSubmittableCls(t.Protocol):
@@ -83,7 +81,7 @@ class GetUserDataFunc(t.Protocol):
     def __call__(self, client: DynamoLike, /) -> Coro[bytes]: ...
 
 
-type ACommand = Command[t.Any, t.Any, t.Any]
+type ACommand = Command[t.Any, ..., t.Any]
 type AppCommandTypes = Group | ACommand | ContextMenu
 type RawSubmittable = RawSubmittableCls | RawSubmittableStatic
 

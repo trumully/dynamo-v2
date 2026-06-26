@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 __lazy_modules__: list[str] = ["asyncio"]
 
 import asyncio
 import operator
+from collections import defaultdict
 from functools import partial
 
 import discord
 from async_utils.corofunc_cache import lrucorocache
 from async_utils.lru import TTLLRU
-from discord import app_commands, ui
+from discord import CategoryChannel, app_commands, ui
 from discord.app_commands import AppCommandContext, Choice, Group
 
-from . import _typing as t
+from . import _typings as t
 from ._ac import cf_ac_cache_transform
 from ._types import BotExports, DynButton, DynContainer, DynRow, DynUserSelect
 from .bot import Interaction
@@ -26,7 +25,7 @@ if t.TYPE_CHECKING:
 
     class PinnedMessage(discord.Message):
         pinned_at: datetime  # pyright: ignore[reportIncompatibleMethodOverride]
-        pinned: t.Literal[True]  # pyright: ignore[reportIncompatibleVariableOverride]
+        pinned: bool = True
 
 
 log: Logger = get_logger(__name__)
@@ -100,7 +99,7 @@ async def get_pin_statistics(target: int, category: discord.CategoryChannel) -> 
         best_channel = max(user_pins, key=lambda k: len(user_pins[k]))
         best_messages = len(user_pins[best_channel])
         user_best_channel = (best_channel, best_messages)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         pass
     except Exception as ex:
         log.exception("Unexpected error when getting pin statistics", exc_info=ex)
@@ -146,7 +145,8 @@ class PinsView:
         edit = itx.edit_original_response if deferred else itx.response.edit_message
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
 
-        category: discord.CategoryChannel = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType]
+        category: CategoryChannel = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType] - validated by transformer
+
         data = await get_pin_statistics(target_id, category)
 
         c = DynContainer()

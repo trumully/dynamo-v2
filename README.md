@@ -1,52 +1,5 @@
 <h2 align="center">Dynamo</h2>
-<h4 align="center">My personal Discord bot</h4>
+<h4 align="center">Open-source Discord application with various utilities</h4>
 <p align="center">
 <a href="" rel="noopener"><img src="assets/img/dynamo.png" alt="Dynamo" height="400"></a>
 </p>
-
-## Set up
-### Prerequisites 
-* [Python 3.13](https://www.python.org/downloads/)
-* [uv](https://docs.astral.sh/uv/getting-started/installation/) 
-    ```pwsh
-    winget install -e --id astral-sh.uv
-    ```
-
-> [!TIP]
-> If you use `uv`, it will [download Python versions when they are required](https://docs.astral.sh/uv/guides/install-python/#automatic-python-downloads)
-
-### Setup a venv
-Assuming you are using `uv`
-```sh
-uv sync
-```
-Requirements specified in `pyproject.toml` / `uv.lock`
-
-## Using
-### .secrets.toml
-```toml
-token = "your token here"
-```
-Alternatively, you can set the environment variable `DYNAMO_TOKEN`
-
-### Run
-Entry point is `dynamo/cli.py`.
-```sh
-uv run dynamo
-```
-
-### Check lint/format/typing
-> [!NOTE]
-> This requires `uv` to run.
-
-```sh
-uv run check.py
-
-# Fix format/lint
-uv run check.py --fix
-```
-
-## License
-This project is released under [The Unlicense](LICENSE), placing all original work into the public domain.
-
-However, it includes third-party components with other licenses. These components retain their respective licenses and are clearly marked in their source files.
