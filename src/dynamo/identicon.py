@@ -28,6 +28,9 @@ class Algorithm(StrEnum):
     SHA1 = auto()
     SHA256 = auto()
     SHA512 = auto()
+    BLAKE2B = auto()
+    SHA3_256 = auto()
+    SHA3_512 = auto()
 
 
 # fmt: off
@@ -36,6 +39,9 @@ _HASH_ALGO_MAP = {
     Algorithm.SHA1:     partial(hashlib.sha1, **hash_kwargs),
     Algorithm.SHA256:   partial(hashlib.sha256, **hash_kwargs),
     Algorithm.SHA512:   partial(hashlib.sha512, **hash_kwargs),
+    Algorithm.BLAKE2B:  partial(hashlib.blake2b, **hash_kwargs),
+    Algorithm.SHA3_256: partial(hashlib.sha3_256, **hash_kwargs),
+    Algorithm.SHA3_512: partial(hashlib.sha3_512, **hash_kwargs)
 }
 # fmt: on
 
@@ -76,21 +82,22 @@ def generate_color(digest: str, /) -> Color:
 @afunc()
 def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> BytesIO:
     to_fill = generate_pattern(digest)
+    bg = background.to_rgb()
+    fg = foreground.to_rgb()
 
-    img = Image.new("RGB", (5, 5), background.to_rgb())
-    for i in range(5):
-        for j in range(5):
-            if to_fill[j][i]:
-                img.putpixel((i, j), foreground.to_rgb())
+    raw_pixels = bytearray()
+    for j in range(5):
+        for i in range(5):
+            raw_pixels.extend(fg if to_fill[j][i] else bg)
 
-    img = img.resize((350, 350), Image.Resampling.NEAREST)  # pyright: ignore[reportUnknownMemberType]
-    result = Image.new("RGB", (420, 420), background.to_rgb())
+    img = Image.frombytes("RGB", (5, 5), bytes(raw_pixels)).resize((350, 350), Image.Resampling.NEAREST)  # pyright: ignore[reportUnknownMemberType]
+    result = Image.new("RGB", (420, 420), bg)
     result.paste(img, (35, 35))
 
-    buff = BytesIO()
-    result.save(buff, format="png")
-    buff.seek(0)
-    return buff
+    output_buffer = BytesIO()
+    result.save(output_buffer, format="png")
+    output_buffer.seek(0)
+    return output_buffer
 
 
 async def send_identicon(
