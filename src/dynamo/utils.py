@@ -110,6 +110,16 @@ def human_join(seq: t.Sequence[str], /, *, delimiter: str = ", ", end: str = "an
     return delimiter.join(seq[:-1]) + f" {end} {seq[-1]}"
 
 
+def quantify(quantity: int, thing: str, /, *, wrap: str | None = None) -> str:
+    """Get a string of a quantity and the thing quantified, plural if not a singular"""
+    amount = quantity if wrap is None else f"{wrap}{quantity}{wrap[::-1]}"
+    return f"{amount} {(quantity == 1 and thing) or f'{thing}s'}"
+
+
+def chunk[T](sequence: list[T], size: int) -> list[list[T]]:
+    return [sequence[i : i + size] for i in range(0, len(sequence), size)]
+
+
 def _get_stored_token() -> str | None:
     token_file_path = dirs.user_config_path / "dynamo.token"
     token_file_path = resolve_path_with_links(token_file_path)

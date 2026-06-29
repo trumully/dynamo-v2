@@ -4,117 +4,85 @@ __lazy_modules__: list[str] = ["asyncio"]
 
 import asyncio
 import operator
-from collections import defaultdict
+from collections import Counter
 from functools import partial
+from itertools import chain
 
 import discord
 from async_utils.corofunc_cache import lrucorocache
-from async_utils.lru import TTLLRU
-from discord import CategoryChannel, app_commands, ui
-from discord.app_commands import AppCommandContext, Choice, Group
+from discord import app_commands, ui
 
 from . import _typings as t
-from ._ac import cf_ac_cache_transform
-from ._types import BotExports, DynButton, DynContainer, DynRow, DynUserSelect
+from ._types import BotExports, DynButton, DynChannelSelect, DynContainer, DynRow, DynUserSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
-from .utils import b2048pack, b2048unpack
+from .utils import b2048pack, b2048unpack, chunk
+from .utils import quantify as quantify_impl
 
-if t.TYPE_CHECKING:
-    from datetime import datetime
-
-    class PinnedMessage(discord.Message):
-        pinned_at: datetime  # pyright: ignore[reportIncompatibleMethodOverride]
-        pinned: bool = True
-
+LEADERBOARD_BATCH = 5
 
 log: Logger = get_logger(__name__)
 
-ctx = AppCommandContext(guild=True, dm_channel=False, private_channel=False)
-pinned_group = Group(name="pinned", description="Review current and historic pin statistics", allowed_contexts=ctx)
+type ChannelWithPins = discord.VoiceChannel | discord.TextChannel | discord.CategoryChannel
 
 
-class PinnedData(t.NamedTuple):
-    user: dict[int, list[PinnedMessage]]
-    total: dict[int, list[PinnedMessage]]
-    user_pins: int
-    user_channels: int
-    user_best_channel: tuple[int, int] | None
-    total_pins: int
-    total_channels: int
-    leaderboard: list[tuple[int, int]]
-    leaderboard_pages: list[list[tuple[int, int]]]
+def channel_cache_transform(
+    args: tuple[discord.abc.Snowflake], kwds: t.Mapping[str, object]
+) -> tuple[tuple[int], t.Mapping[str, object]]:
+    return (args[0].id,), kwds
 
 
-async def fetch_channel_pins(channel: discord.TextChannel) -> tuple[int, list[PinnedMessage]]:
-    return channel.id, [m async for m in channel.pins()]  # pyright: ignore[reportReturnType]
+async def get_channel_pins(channel: discord.VoiceChannel | discord.TextChannel, /) -> list[discord.abc.PinnedMessage]:
+    return [m async for m in channel.pins(limit=None)]
 
 
-_pins_lru: TTLLRU[int, dict[int, list[PinnedMessage]]] = TTLLRU(128, 60 * 60 * 12)
-_lock = asyncio.Lock()
+@lrucorocache(60 * 60, cache_transform=channel_cache_transform)
+async def get_pins(channel: ChannelWithPins) -> list[discord.abc.PinnedMessage]:
+    pins: list[discord.abc.PinnedMessage]
+    if isinstance(channel, discord.CategoryChannel):
+        tasks = {get_channel_pins(c) for c in chain(channel.text_channels, channel.voice_channels)}
+        pins = list(chain.from_iterable(await asyncio.gather(*tasks)))
+    else:
+        pins = await get_channel_pins(channel)
+    return pins
 
 
-async def get_pins(category: discord.CategoryChannel) -> dict[int, list[PinnedMessage]]:
-    async with _lock:
-        existing = _pins_lru.get(category.id, None)
-        if existing is not None:
-            return existing
-        tasks = [fetch_channel_pins(c) for c in category.text_channels]
-        gathered = await asyncio.gather(*tasks)
-        result = dict(gathered)
-        _pins_lru[category.id] = result
-        return result
+def get_user_pins_by_channel(user_id: int, pins: list[discord.abc.PinnedMessage]) -> dict[int, int]:
+    user_pins = [pin for pin in pins if pin.author.id == user_id]
+    if not user_pins:
+        return {}
+    unique_channels = {pin.channel.id for pin in user_pins}
+    if len(unique_channels) == 1:
+        return {unique_channels.pop(): len(user_pins)}
+    pins_by_channel = {channel: sum(1 for pin in user_pins if pin.channel.id == channel) for channel in unique_channels}
+    return dict(sorted(pins_by_channel.items(), key=operator.itemgetter(1), reverse=True))
 
 
-def filter_pins_by_user(target_id: int, pins: dict[int, list[PinnedMessage]]) -> dict[int, list[PinnedMessage]]:
-    user_pins = {c_id: [m for m in msgs if m.author.id == target_id] for c_id, msgs in pins.items()}
-    return {c_id: msgs for c_id, msgs in user_pins.items() if msgs}
+def get_total_pins_by_user(pins: list[discord.abc.PinnedMessage]) -> dict[int, int]:
+    count = Counter(pin.author.id for pin in pins)
+    return dict(count.most_common())
 
 
-def chunk[T](lst: list[T], size: int) -> list[list[T]]:
-    return [lst[i : i + size] for i in range(0, len(lst), size)]
-
-
-async def get_pin_statistics(target: int, category: discord.CategoryChannel) -> PinnedData:
-    pins = await get_pins(category)
-    user_pins = filter_pins_by_user(target, pins)
-    user_pin_count = sum(len(msgs) for msgs in user_pins.values())
-    user_channel_count = len(user_pins)
-    total_pin_count = sum(len(msgs) for msgs in pins.values())
-    total_channel_count = len(pins)
-
-    leaderboard: dict[int, int] = defaultdict(int)
-
-    for msgs in pins.values():
-        for msg in msgs:
-            if msg.author:  # should always be present
-                leaderboard[msg.author.id] += 1
-
-    # Sort by most pins
-    sorted_leaderboard = sorted(leaderboard.items(), key=operator.itemgetter(1), reverse=True)
-    leaderboard_pages = chunk(sorted_leaderboard, 10)
-
-    user_best_channel: tuple[int, int] | None = None
-    try:
-        best_channel = max(user_pins, key=lambda k: len(user_pins[k]))
-        best_messages = len(user_pins[best_channel])
-        user_best_channel = (best_channel, best_messages)
-    except ValueError, TypeError:
-        pass
-    except Exception as ex:
-        log.exception("Unexpected error when getting pin statistics", exc_info=ex)
-
-    return PinnedData(
-        user=user_pins,
-        total=pins,
-        user_pins=user_pin_count,
-        user_channels=user_channel_count,
-        user_best_channel=user_best_channel,
-        total_pins=total_pin_count,
-        total_channels=total_channel_count,
-        leaderboard=sorted_leaderboard,
-        leaderboard_pages=leaderboard_pages,
+def user_pins_by_channel_leaderboard(pins: dict[int, int]) -> list[list[str]]:
+    return chunk(
+        [f"{i + 1}. <#{channel}> - {quantify_bold(pin, 'pin')}\n" for i, (channel, pin) in enumerate(pins.items())],
+        LEADERBOARD_BATCH,
     )
+
+
+def total_pins_by_user_leaderboard(pins: dict[int, int]) -> list[list[str]]:
+    return chunk(
+        [f"{i + 1}. <@{user}> - {quantify_bold(pin, 'pin')}\n" for i, (user, pin) in enumerate(pins.items())],
+        LEADERBOARD_BATCH,
+    )
+
+
+def quantify(quantity: int, thing: str) -> str:
+    return quantify_impl(quantity, thing, wrap="`")
+
+
+def quantify_bold(quantity: int, thing: str) -> str:
+    return quantify_impl(quantity, thing, wrap="**`")
 
 
 class PinsView:
@@ -127,16 +95,21 @@ class PinsView:
         )
 
     @classmethod
-    async def start(cls, itx: Interaction, target_id: int, category_id: int, *, deferred: bool) -> None:
-        await cls.set(itx, target_id, category_id, 0, initial=True, deferred=deferred)
+    async def warning(cls, itx: Interaction, message: str) -> None:
+        await itx.edit_original_response(view=ui.LayoutView().add_item(DynContainer().add_item(ui.TextDisplay(message))))
+
+    @classmethod
+    async def start(cls, itx: Interaction, target_id: int, channel_id: int, *, deferred: bool) -> None:
+        await cls.set(itx, target_id, channel_id, 0, 0, initial=True, deferred=deferred)
 
     @classmethod
     async def set(
         cls,
         itx: Interaction,
         target_id: int,
-        category_id: int,
-        index: int,
+        channel_id: int,
+        user_page_index: int,
+        total_page_index: int,
         *,
         initial: bool = False,
         deferred: bool = False,
@@ -144,16 +117,128 @@ class PinsView:
         assert itx.guild is not None, "Guild only context"
         edit = itx.edit_original_response if deferred else itx.response.edit_message
         send = edit if deferred else partial(itx.response.send_message, ephemeral=True)
+        method = send if initial else edit
 
-        category: CategoryChannel = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType] - validated by transformer
+        channel = itx.guild.get_channel(channel_id)
+        if channel is None:
+            await cls.warning(itx, "That channel or category does not exist.")
+            return
 
-        data = await get_pin_statistics(target_id, category)
+        if isinstance(channel, (discord.ForumChannel, discord.StageChannel)):
+            await cls.warning(itx, "An invalid channel type has been selected.")
+            return
+
+        pins = await get_pins(channel)
+
+        channel_count = len(channel.channels) if isinstance(channel, discord.CategoryChannel) else 1
+        total_pins_by_user = get_total_pins_by_user(pins)
+        user_pins_by_channel = get_user_pins_by_channel(target_id, pins)
 
         c = DynContainer()
 
-        c.add_item(ui.TextDisplay("# Pins All-time Rankings"))
+        if user_pins_by_channel and channel_count > 1:
+            user_leaderboard = user_pins_by_channel_leaderboard(user_pins_by_channel)
+            c.add_item(
+                ui.TextDisplay(
+                    f"### <@{target_id}> pins\n"
+                    f"{''.join(user_leaderboard[user_page_index])}"
+                    f"-# Page: {user_page_index + 1} / {len(user_leaderboard)}"
+                )
+            )
+            row = DynRow()
+            c_id = "c:pins:" + b2048pack((
+                "c_first",
+                itx.user.id,
+                target_id,
+                channel_id,
+                0,
+                total_page_index,
+            ))
+            row.add_item(DynButton(label="<<", custom_id=c_id, disabled=user_page_index == 0))
+            c_id = "c:pins:" + b2048pack((
+                "c_prev",
+                itx.user.id,
+                target_id,
+                channel_id,
+                max(user_page_index - 1, 0),
+                total_page_index,
+            ))
+            row.add_item(DynButton(label="<", custom_id=c_id, disabled=user_page_index == 0))
+            c_id = "c:pins:" + b2048pack((
+                "c_next",
+                itx.user.id,
+                target_id,
+                channel_id,
+                min(user_page_index + 1, len(user_leaderboard) - 1),
+                total_page_index,
+            ))
+            row.add_item(DynButton(label=">", custom_id=c_id, disabled=user_page_index == (len(user_leaderboard) - 1)))
+            c_id = "c:pins:" + b2048pack((
+                "c_last",
+                itx.user.id,
+                target_id,
+                channel_id,
+                len(user_leaderboard) - 1,
+                total_page_index,
+            ))
+            row.add_item(DynButton(label=">>", custom_id=c_id, disabled=user_page_index == (len(user_leaderboard) - 1)))
+            c.add_item(row)
+
+            c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.small))
+
+        if total_pins_by_user:
+            all_leaderboard = total_pins_by_user_leaderboard(total_pins_by_user)
+            c.add_item(
+                ui.TextDisplay(
+                    f"### All pins in <#{channel_id}>\n"
+                    f"{''.join(all_leaderboard[total_page_index])}"
+                    f"-# Page: {total_page_index + 1} / {len(all_leaderboard)}"
+                )
+            )
+
+            row = DynRow()
+            c_id = "c:pins:" + b2048pack(("t_first", itx.user.id, target_id, channel_id, user_page_index, 0))
+            row.add_item(DynButton(label="<<", custom_id=c_id, disabled=total_page_index == 0))
+            c_id = "c:pins:" + b2048pack((
+                "t_prev",
+                itx.user.id,
+                target_id,
+                channel_id,
+                user_page_index,
+                max(total_page_index - 1, 0),
+            ))
+            row.add_item(DynButton(label="<", custom_id=c_id, disabled=total_page_index == 0))
+            c_id = "c:pins:" + b2048pack((
+                "t_next",
+                itx.user.id,
+                target_id,
+                channel_id,
+                user_page_index,
+                min(total_page_index + 1, len(all_leaderboard) - 1),
+            ))
+            row.add_item(DynButton(label=">", custom_id=c_id, disabled=total_page_index == len(all_leaderboard) - 1))
+            c_id = "c:pins:" + b2048pack((
+                "t_last",
+                itx.user.id,
+                target_id,
+                channel_id,
+                user_page_index,
+                len(all_leaderboard) - 1,
+            ))
+            row.add_item(DynButton(label=">>", custom_id=c_id, disabled=total_page_index == len(all_leaderboard) - 1))
+            c.add_item(row)
+
+            c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.large))
+
         row = DynRow()
-        c_id = "c:pins:" + b2048pack(("user", itx.user.id, target_id, category_id, index))
+        c_id = "c:pins:" + b2048pack((
+            "user",
+            itx.user.id,
+            target_id,
+            channel_id,
+            user_page_index,
+            total_page_index,
+        ))
         row.add_item(
             DynUserSelect(
                 custom_id=c_id,
@@ -162,135 +247,73 @@ class PinsView:
         )
         c.add_item(row)
 
-        text = f"- **{data.user_pins}** pins across **{data.user_channels}** channels\n"
-        if data.user_best_channel is not None:
-            channel, messages = data.user_best_channel
-            text += f"- Most pins in a single channel: **{messages}** in <#{channel}>"
-        c.add_item(ui.TextDisplay(text))
-
-        c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.large))
-
-        text = f"## `{data.total_pins}` pins across `{data.total_channels}` channels\n"
-        for i, (user, pins) in enumerate(data.leaderboard_pages[index], start=(index * 10) + 1):
-            text += f"{i}. <@{user}> - **{pins}** {'pins' if pins != 1 else 'pin'}\n"
-
-        text += f"\n-# Page: {index + 1} / {len(data.leaderboard_pages)}"
+        text = "### Has no pins yet in"
+        if user_pins_by_channel:
+            text = f"### Has {quantify(sum(pin for pin in user_pins_by_channel.values()), 'pin')} in"
+            if channel_count > 1:
+                text += f" {quantify(len(user_pins_by_channel), 'channel')} in"
         c.add_item(ui.TextDisplay(text))
 
         row = DynRow()
-        c_id = "c:pins:" + b2048pack(("last", itx.user.id, target_id, category_id, 0))
-        row.add_item(DynButton(label="<<", custom_id=c_id, disabled=index == 0))
-        previous = max(index - 1, 0)
-        c_id = "c:pins:" + b2048pack(("previous", itx.user.id, target_id, category_id, previous))
-        row.add_item(DynButton(label="<", custom_id=c_id, disabled=index == 0))
-        next_ = min(index + 1, len(data.leaderboard_pages) - 1)
-        c_id = "c:pins:" + b2048pack(("next", itx.user.id, target_id, category_id, next_))
-        row.add_item(DynButton(label=">", custom_id=c_id, disabled=index == len(data.leaderboard_pages) - 1))
-        c_id = "c:pins:" + b2048pack(("last", itx.user.id, target_id, category_id, len(data.leaderboard_pages) - 1))
-        row.add_item(DynButton(label=">>", custom_id=c_id, disabled=index == len(data.leaderboard_pages) - 1))
+        c_id = "c:pins:" + b2048pack(("channel", itx.user.id, target_id, channel_id, user_page_index, total_page_index))
+        row.add_item(
+            DynChannelSelect(
+                custom_id=c_id,
+                default_values=[discord.SelectDefaultValue(id=channel_id, type=discord.SelectDefaultValueType.channel)],
+                channel_types=[discord.ChannelType.text, discord.ChannelType.voice, discord.ChannelType.category],
+            )
+        )
         c.add_item(row)
+
+        text = "### Which has no pins yet"
+        if total_pins_by_user:
+            text = f"### Which has {quantify(sum(pin for pin in total_pins_by_user.values()), 'pin')} overall"
+            if channel_count > 1:
+                text += f" in {quantify(len(total_pins_by_user), 'channel')}"
+        c.add_item(ui.TextDisplay(text))
 
         view = ui.LayoutView()
         view.add_item(c)
 
-        method = send if initial else edit
         await method(view=view)
 
     @classmethod
     async def raw_submit(cls, itx: Interaction, data: str) -> None:
-        _action, author, target, category, index = b2048unpack(data, tuple[str, int, int, int, int])
+        action, author, target, channel, user_page_index, total_page_index = b2048unpack(
+            data, tuple[str, int, int, int, int, int]
+        )
         if itx.user.id != author:
             return
 
         assert itx.data is not None
         values: list[str] = itx.data.get("values", [])
         if values:
-            target = int(values[0])
+            if action == "user":
+                target = int(values[0])
+            else:
+                channel = int(values[0])
+            user_page_index = 0
+            total_page_index = 0
 
         await itx.response.defer(ephemeral=True)
-        if _pins_lru.get(category, None) is None:
-            await cls.placeholder(itx)
-        await cls.set(itx, target, category, index, deferred=True)
+        await cls.set(itx, target, channel, user_page_index, total_page_index, deferred=True)
 
 
-@pinned_group.command(name="set")
-@app_commands.describe(category="The category the historic channels are stored")
-async def pinned_set_historic(itx: Interaction, category: str) -> None:
-    """Set the category that historic channels are stored"""
+@app_commands.command(name="pins", description="Review channel and user pin statistics")
+@app_commands.describe(channel="The channel/category checked. Current by default", user="The user checked. You by default")
+@app_commands.allowed_contexts(guilds=True, dms=False, private_channels=False)
+async def pins(itx: Interaction, channel: ChannelWithPins | None, user: (discord.Member | discord.User) | None) -> None:
     assert itx.guild is not None, "Guild only command"
+    assert itx.channel is not None, "We are in a channel"
+    assert isinstance(itx.channel, discord.abc.GuildChannel), "We are not in DMs"
     await itx.response.defer(ephemeral=True)
 
-    category_id = int(category)
-    actual_category = itx.guild.get_channel(category_id)
-    if actual_category is None:
-        await itx.edit_original_response(content="That category doesn't exist.")
-        return
+    if channel is None:
+        channel = itx.channel  # pyright: ignore[reportAssignmentType]
+    if user is None:
+        user = itx.user
 
-    with itx.client.conn:
-        itx.client.conn.execute(
-            """
-            INSERT INTO guilds (guild_id) 
-            VALUES (:guild_id)
-            ON CONFLICT (guild_id)
-            DO NOTHING;
-
-            INSERT INTO guild_archive_category (guild_id, category_id)
-            VALUES (:guild_id, :category_id)
-            ON CONFLICT (guild_id)
-            DO UPDATE SET category_id=excluded.category_id;
-            """,
-            {"guild_id": itx.guild.id, "category_id": category_id},
-        )
-
-    await itx.edit_original_response(content=f"Set the historic category to `{actual_category.name}`")
+    await PinsView.start(itx, user.id, channel.id, deferred=True)  # pyright: ignore[reportOptionalMemberAccess]
 
 
-@pinned_group.command(name="get")
-@app_commands.describe(user="The user to check. Leave blank to check yourself")
-async def pinned_get(itx: Interaction, user: (discord.Member | discord.User) | None) -> None:
-    """Get pin statistics for a given user"""
-    assert itx.guild is not None, "Guild only command"
-    await itx.response.defer(ephemeral=True)
-    target = itx.user.id if user is None else user.id
-
-    assert itx.guild is not None, "Guild only command"
-    row: tuple[int] | None = itx.client.read_conn.execute(
-        """
-        SELECT category_id FROM guild_archive_category
-        WHERE guild_id = ? LIMIT 1;
-        """,
-        (itx.guild.id,),
-    ).fetchone()
-
-    if row is None:
-        await itx.edit_original_response(content="Category not set for this guild.")
-        return
-
-    category_id = row[0]
-
-    category: discord.CategoryChannel | None = itx.guild.get_channel(category_id)  # pyright: ignore[reportAssignmentType]
-    if category is None:
-        await itx.edit_original_response(content="That category no longer exists. Please set a new category.")
-        with itx.client.conn:
-            itx.client.conn.execute(
-                """
-                DELETE FROM guild_archive_category
-                WHERE guild_id = ?
-                """,
-                (itx.guild.id,),
-            )
-        return
-
-    await PinsView.start(itx, target, category_id, deferred=True)
-
-
-@pinned_set_historic.autocomplete("category")
-@lrucorocache(300, cache_transform=cf_ac_cache_transform)
-async def autocomplete(itx: Interaction, current: str, /) -> list[Choice[str]]:
-    assert itx.guild is not None, "Guild only transformer."
-    cf_current = current.casefold()
-    categories = {c for c in itx.guild.categories if c.name.casefold().startswith(cf_current)}
-    return [Choice(name=c.name, value=str(c.id)) for c in categories]
-
-
-exports: BotExports = BotExports(commands=[pinned_group], raw_component_submits={"pins": PinsView})
+exports: BotExports = BotExports(commands=[pins], raw_component_submits={"pins": PinsView})

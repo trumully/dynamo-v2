@@ -49,6 +49,10 @@ class DynUserSelect(ui.UserSelect[ui.LayoutView]):
     async def callback(self, interaction: DInter) -> object: ...
 
 
+class DynChannelSelect(ui.ChannelSelect[ui.LayoutView]):
+    async def callback(self, interaction: DInter) -> object: ...
+
+
 class DynSection(ui.Section[ui.LayoutView]):
     async def callback(self, interaction: DInter) -> object: ...
 
