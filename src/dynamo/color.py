@@ -16,32 +16,25 @@ SIMILARITY_CUTOFF = 0.3
 EPSILON = 1e-6
 
 
-def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> tuple[int, int, int]:
-    """Convert to RGB from HSL.
+def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> Color:
+    c = (1 - abs(2 * lightness - 1)) * saturation
+    x = c * (1 - abs((hue / 60) % 2 - 1))
+    m = lightness - c / 2
 
-    Args:
-        hue (float): degrees [0, 360]
-        saturation (float): percentage [0, 1]
-        lightness (float): percentage [0, 1]
+    if hue < 60:
+        r, g, b = c, x, 0
+    elif hue < 120:
+        r, g, b = x, c, 0
+    elif hue < 180:
+        r, g, b = 0, c, x
+    elif hue < 240:
+        r, g, b = 0, x, c
+    elif hue < 300:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
 
-    Sources:
-        - https://stackoverflow.com/a/44134328
-        - https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative
-    """
-
-    a = saturation * min(lightness, 1 - lightness)
-    h = hue / 30
-
-    # n = offset for rgb components (r=0, g=8, b=4)
-    def f(n: int) -> int:
-        # hue shift
-        # k is split into 12 different angles of 30deg intervals.
-        # 0,4,8 are unique and evenly spaced angles for k.
-        k = (n + h) % 12
-        value = lightness - a * max(-1, min((k - 3, 9 - k, 1)))
-        return round(255 * value)
-
-    return f(0), f(8), f(4)
+    return Color.from_rgb(round((r + m) * 255), round((g + m) * 255), round((b + m) * 255))
 
 
 def squared_delta(x: tuple[int, int, int], y: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -99,25 +92,6 @@ class Color(DiscordColor):
     @classmethod
     async def transform(cls: type[Color], itx: Interaction, value: str, /) -> Color:
         return t.cast("Color", cls.from_str(value))
-
-    @classmethod
-    def from_hsl(cls: type[Color], hue: float, saturation: float, lightness: float) -> Color:
-        """Get color from HSL values
-
-        Args:
-            hue (float): degrees [0, 360]
-            saturation (float): percentage [0, 1]
-            lightness (float): percentage [0, 1]
-        """
-        return cls.from_rgb(*hsl_to_rgb(hue, saturation, lightness))
-
-    @classmethod
-    def white(cls: type[t.Self]) -> t.Self:
-        return cls(0xF0F0F0)
-
-    @classmethod
-    def black(cls: type[t.Self]) -> t.Self:
-        return cls.default()
 
 
 __all__ = ("Color",)

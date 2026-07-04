@@ -33,7 +33,7 @@ FONT = FontDB.Query(" ".join(font.stem for font in FONT_PATH.rglob("*.ttf")))
 MEDIUM = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_MEDIUM - 6)
 LARGE = ImageFont.FreeTypeFont(FONT_PATH / "NotoSans-Regular.ttf", FONT_LARGE - 10)
 
-WHITE = Color.white().to_rgb()
+WHITE = Color(0xF0F0F0).to_rgb()
 PAINT_WHITE = Paint(FontColor(*WHITE, 255))
 GRAY = (80, 80, 80)
 

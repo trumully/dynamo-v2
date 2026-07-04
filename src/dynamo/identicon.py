@@ -3,17 +3,18 @@ from __future__ import annotations
 import hashlib
 import time
 from enum import StrEnum, auto
-from functools import lru_cache, partial
+from functools import partial
 from io import BytesIO
 
 import discord
+from async_utils.task_cache import lrutaskcache
 from discord import app_commands
 from PIL import Image
 
 from . import _typings as t
 from ._types import BotExports
 from .bot import Interaction
-from .color import Color
+from .color import Color, hsl_to_rgb
 from .logs import Logger, get_logger
 from .utils import afunc
 
@@ -45,59 +46,87 @@ _HASH_ALGO_MAP = {
 }
 # fmt: on
 
+WHITE = Color(0xF0F0F0)
 
-WHITE = Color.white()
-
-
-@lru_cache
-def generate_pattern(digest: str, /) -> list[list[bool]]:
-    col3 = [int(x, 16) % 2 == 0 for x in digest[:5]]
-    col2 = [int(x, 16) % 2 == 0 for x in digest[5:10]]
-    col1 = [int(x, 16) % 2 == 0 for x in digest[10:15]]
-
-    return [[col1[i], col2[i], col3[i], col2[i], col1[i]] for i in range(5)]
+PIXEL_SIZE = 70
+MARGIN = PIXEL_SIZE // 2
+GRID_SIZE = 5
+WIDTH = HEIGHT = GRID_SIZE * PIXEL_SIZE + MARGIN * 2
 
 
-@lru_cache
-def remap(value: str, v_min: int, v_max: int, d_min: int, d_max: int) -> float:
-    v = int(value, 16)
-    return ((v - v_min) * (d_max - d_min)) / ((v_max - v_min) + d_min)
+def generate_color(data: bytes, /) -> Color:
+    h = ((data[12] & 0x0F) << 8) | data[13]
+
+    hue = h * 360 / 4095
+    sat = (65.0 - (data[14] * 20 / 255)) / 100
+    lum = (75.0 - (data[15] * 20 / 255)) / 100
+    return hsl_to_rgb(hue, sat, lum)
 
 
-def generate_color(digest: str, /) -> Color:
-    """Calculated from the last 7 nibbles of a hash HHH|SS|LL.
-
-    HHH (0..4095) remapped to a value between (0..360) = hue
-    SS (0..255) remapped to a value between (0..20) = saturation, max 65
-    LL (0..255) remapped to a value between (0..20) = luminance, max 75
-    """
-    color = digest[-7:]
-
-    hue = remap(color[:3], 0, 4095, 0, 360)
-    sat = remap(color[3:5], 0, 255, 0, 20) / 100
-    lum = remap(color[5:7], 0, 255, 0, 20) / 100
-    return Color.from_hsl(hue, 0.65 - sat, 0.75 - lum)
+def nibbles(data: bytes) -> t.Generator[int]:
+    for byte in data:
+        yield (byte & 0xF0) >> 4
+        yield byte & 0x0F
 
 
+def digest_to_mask(data: bytes) -> int:
+    gen = nibbles(data)
+    mask = 0
+    for col in range(2, -1, -1):
+        for row in range(GRID_SIZE):
+            nib = next(gen, 1)
+            filled = nib % 2 == 0
+
+            if filled:
+                mask |= 1 << (row * GRID_SIZE + col)
+                mask |= 1 << (row * GRID_SIZE + (4 - col))
+    return mask
+
+
+def render_identicon(mask: int, fg: tuple[int, int, int], bg: tuple[int, int, int], /) -> bytes:
+    stride = WIDTH * 3
+
+    buffer = bytearray(WIDTH * HEIGHT * 3)
+    buffer[:] = bg * (WIDTH * HEIGHT)
+    fg_row = bytes(list(fg)) * PIXEL_SIZE
+
+    for y in range(GRID_SIZE):
+        for x in range(GRID_SIZE):
+            bit = y * 5 + x
+            if not (mask >> bit) & 1:
+                continue
+
+            base_y = (MARGIN + y * PIXEL_SIZE) * stride
+            base_x = (MARGIN + x * PIXEL_SIZE) * 3
+
+            for py in range(PIXEL_SIZE):
+                start = base_y + py * stride + base_x
+                buffer[start : start + PIXEL_SIZE * 3] = fg_row
+
+    return bytes(buffer)
+
+
+@lrutaskcache(maxsize=1024)
 @afunc()
-def identicon_to_img(digest: str, foreground: Color, background: Color, /) -> BytesIO:
-    to_fill = generate_pattern(digest)
-    bg = background.to_rgb()
-    fg = foreground.to_rgb()
+def get_identicon_png_bytes(
+    digest: bytes,
+    foreground: tuple[int, int, int],
+    background: tuple[int, int, int],
+) -> bytes:
+    mask = digest_to_mask(digest)
+    img = Image.frombytes("RGB", (420, 420), render_identicon(mask, foreground, background))
+    out = BytesIO()
+    img.save(out, format="PNG")
+    return out.getvalue()
 
-    raw_pixels = bytearray()
-    for j in range(5):
-        for i in range(5):
-            raw_pixels.extend(fg if to_fill[j][i] else bg)
 
-    img = Image.frombytes("RGB", (5, 5), bytes(raw_pixels)).resize((350, 350), Image.Resampling.NEAREST)  # pyright: ignore[reportUnknownMemberType]
-    result = Image.new("RGB", (420, 420), bg)
-    result.paste(img, (35, 35))
-
-    output_buffer = BytesIO()
-    result.save(output_buffer, format="png")
-    output_buffer.seek(0)
-    return output_buffer
+async def generate_identicon(
+    digest: bytes,
+    foreground: tuple[int, int, int],
+    background: tuple[int, int, int],
+) -> BytesIO:
+    png_bytes = await get_identicon_png_bytes(digest, foreground, background)
+    return BytesIO(png_bytes)
 
 
 async def send_identicon(
@@ -109,11 +138,9 @@ async def send_identicon(
     ephemeral: bool = True,
     /,
 ) -> None:
-    digest = _HASH_ALGO_MAP[algorithm](value.encode()).hexdigest()
-    if foreground is None:
-        foreground = generate_color(digest)
-    img = await identicon_to_img(digest, foreground, background)
-
+    digest = _HASH_ALGO_MAP[algorithm](value.encode("utf-8")).digest()
+    foreground = generate_color(digest) if foreground is None else foreground
+    img = await generate_identicon(digest, foreground.to_rgb(), background.to_rgb())
     file = discord.File(img, filename="identicon.png")
     description = f"Generated with **{algorithm.upper()}**"
     embed = discord.Embed(title=value, color=foreground, description=description)
@@ -141,7 +168,6 @@ async def get_identicon(
     ephemeral: bool = True,
 ) -> None:
     value = str(time.monotonic_ns()) if value is None else "".join(c for c in value if c.isalnum())
-
     await send_identicon(itx, value, algorithm, foreground, background, ephemeral)
 
 

@@ -238,7 +238,7 @@ async def interested(itx: Interaction, event: str) -> None:
         if actual_event is not None:
             msg = f"`[{actual_event.name}]({actual_event.url}) {' '.join([u.mention async for u in actual_event.users() if u.id != itx.user.id]) or 'None interested'}`"
         else:
-            # Cancelled/ended during invocation or stale cache
+            # Event cancelled/ended during invocation or stale cache
             msg = "That event was recently cancelled, ended, or does not exist."
     except ValueError:
         # A valid event will return as the scheduled event id in string form.
