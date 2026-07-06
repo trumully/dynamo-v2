@@ -57,9 +57,9 @@ def _run_bot(loop: asyncio.AbstractEventLoop, queue: asyncio.Queue[signal.Signal
     )
     session = aiohttp.ClientSession(connector=connector, json_serialize=to_json)
 
-    from . import identicon, pins, useful
+    from . import identicon, pins, spotify, useful
 
-    initial_exts: list[HasExports] = [identicon, pins, useful]
+    initial_exts: list[HasExports] = [identicon, pins, useful, spotify]
 
     from .bot import Dynamo
 

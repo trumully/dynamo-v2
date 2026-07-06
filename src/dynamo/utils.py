@@ -79,7 +79,7 @@ def resolve_path_with_links(path: Path, /, *, folder: bool = False) -> Path:
         return path.resolve(strict=True)
 
 
-ROOT = resolve_path_with_links(Path(__file__).parent.parent.parent.parent, folder=True)
+ROOT = resolve_path_with_links(Path(__file__).parent.parent.parent, folder=True)
 
 
 encoder: json.Encoder = json.Encoder()
