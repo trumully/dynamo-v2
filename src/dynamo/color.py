@@ -75,6 +75,10 @@ def luminance(x: tuple[int, int, int]) -> float:
     return (77 * r + 150 * g + 29 * b) >> 8
 
 
+def saturation(c: tuple[int, int, int]) -> float:
+    return max(c) - min(c)
+
+
 def is_similar_to(x: tuple[int, int, int], y: tuple[int, int, int]) -> bool:
     p = perceived_distance_between(x, y)
     e = euclidean_distance_between(x, y)
