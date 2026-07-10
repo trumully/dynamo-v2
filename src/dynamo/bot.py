@@ -26,6 +26,7 @@ from discord.abc import Snowflake
 from . import _typings as t
 from ._types import HasExports, RawSubmittable
 from .logs import Logger, get_logger
+from .services import Services
 from .utils import dirs, resolve_path_with_links, to_json
 
 type Interaction = discord.Interaction[Dynamo]
@@ -121,6 +122,7 @@ class Dynamo(discord.AutoShardedClient):
         self.user_block_cache: LRU[int, bool] = LRU[int, bool](512)
         self.guild_block_cache: LRU[int, bool] = LRU[int, bool](256)
         self.initial_exts: list[HasExports] = initial_exts
+        self.services = Services(self.session)
         self._last_interact_waterfall: Waterfall[int] = Waterfall(10, 100, self.update_last_seen)
 
     async def update_last_seen(self, user_ids: t.Sequence[int], /) -> None:
