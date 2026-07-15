@@ -86,12 +86,32 @@ def quantify_bold(quantity: int, thing: str) -> str:
 
 
 class PinsView:
+    @staticmethod
+    def custom_id(*to_pack: object) -> str:
+        return "c:pins:" + b2048pack(to_pack)
+
     @classmethod
-    async def placeholder(cls, itx: Interaction) -> None:
-        await itx.edit_original_response(
-            view=ui.LayoutView().add_item(
-                DynContainer().add_item(ui.TextDisplay("<a:_:1286858083552989265>  Loading. Please wait."))
-            )
+    def set_leaderboard(
+        cls,
+        items: list[list[str]],
+        header: str,
+        index: int,
+        *,
+        first_id: str,
+        prev_id: str,
+        next_id: str,
+        last_id: str,
+    ) -> tuple[ui.TextDisplay[ui.LayoutView], DynRow]:
+        length = len(items)
+        index %= length
+        first_disabled = index == 0
+        last_disabled = index == length - 1
+
+        return ui.TextDisplay(f"{header}\n{''.join(items[index])}-# Page: {index + 1} / {length}"), DynRow(
+            DynButton(label="<<", custom_id=first_id, disabled=first_disabled),
+            DynButton(label="<", custom_id=prev_id, disabled=first_disabled),
+            DynButton(label=">", custom_id=next_id, disabled=last_disabled),
+            DynButton(label=">>", custom_id=last_id, disabled=last_disabled),
         )
 
     @classmethod
@@ -137,108 +157,38 @@ class PinsView:
         c = DynContainer()
 
         if user_pins_by_channel and channel_count > 1:
-            user_leaderboard = user_pins_by_channel_leaderboard(user_pins_by_channel)
-            c.add_item(
-                ui.TextDisplay(
-                    f"### <@{target_id}> pins\n"
-                    f"{''.join(user_leaderboard[user_page_index])}"
-                    f"-# Page: {user_page_index + 1} / {len(user_leaderboard)}"
-                )
+            leaderboard = user_pins_by_channel_leaderboard(user_pins_by_channel)
+            text, row = cls.set_leaderboard(
+                leaderboard,
+                f"### <@{target_id}> pins",
+                user_page_index,
+                first_id=cls.custom_id("c_first", itx.user.id, target_id, channel_id, 0, total_page_index),
+                prev_id=cls.custom_id("c_prev", itx.user.id, target_id, channel_id, user_page_index - 1, total_page_index),
+                next_id=cls.custom_id("c_next", itx.user.id, target_id, channel_id, user_page_index + 1, total_page_index),
+                last_id=cls.custom_id("c_last", itx.user.id, target_id, channel_id, len(leaderboard) - 1, total_page_index),
             )
-            row = DynRow()
-            c_id = "c:pins:" + b2048pack((
-                "c_first",
-                itx.user.id,
-                target_id,
-                channel_id,
-                0,
-                total_page_index,
-            ))
-            row.add_item(DynButton(label="<<", custom_id=c_id, disabled=user_page_index == 0))
-            c_id = "c:pins:" + b2048pack((
-                "c_prev",
-                itx.user.id,
-                target_id,
-                channel_id,
-                max(user_page_index - 1, 0),
-                total_page_index,
-            ))
-            row.add_item(DynButton(label="<", custom_id=c_id, disabled=user_page_index == 0))
-            c_id = "c:pins:" + b2048pack((
-                "c_next",
-                itx.user.id,
-                target_id,
-                channel_id,
-                min(user_page_index + 1, len(user_leaderboard) - 1),
-                total_page_index,
-            ))
-            row.add_item(DynButton(label=">", custom_id=c_id, disabled=user_page_index == (len(user_leaderboard) - 1)))
-            c_id = "c:pins:" + b2048pack((
-                "c_last",
-                itx.user.id,
-                target_id,
-                channel_id,
-                len(user_leaderboard) - 1,
-                total_page_index,
-            ))
-            row.add_item(DynButton(label=">>", custom_id=c_id, disabled=user_page_index == (len(user_leaderboard) - 1)))
+            c.add_item(text)
             c.add_item(row)
-
-            c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.small))
+            c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.large))
 
         if total_pins_by_user:
-            all_leaderboard = total_pins_by_user_leaderboard(total_pins_by_user)
-            c.add_item(
-                ui.TextDisplay(
-                    f"### All pins in <#{channel_id}>\n"
-                    f"{''.join(all_leaderboard[total_page_index])}"
-                    f"-# Page: {total_page_index + 1} / {len(all_leaderboard)}"
-                )
+            leaderboard = total_pins_by_user_leaderboard(total_pins_by_user)
+            text, row = cls.set_leaderboard(
+                leaderboard,
+                f"### All pins in <#{channel_id}>",
+                total_page_index,
+                first_id=cls.custom_id("t_first", itx.user.id, target_id, channel_id, user_page_index, 0),
+                prev_id=cls.custom_id("t_prev", itx.user.id, target_id, channel_id, user_page_index, total_page_index - 1),
+                next_id=cls.custom_id("t_next", itx.user.id, target_id, channel_id, user_page_index, total_page_index + 1),
+                last_id=cls.custom_id("t_last", itx.user.id, target_id, channel_id, user_page_index, len(leaderboard) - 1),
             )
-
-            row = DynRow()
-            c_id = "c:pins:" + b2048pack(("t_first", itx.user.id, target_id, channel_id, user_page_index, 0))
-            row.add_item(DynButton(label="<<", custom_id=c_id, disabled=total_page_index == 0))
-            c_id = "c:pins:" + b2048pack((
-                "t_prev",
-                itx.user.id,
-                target_id,
-                channel_id,
-                user_page_index,
-                max(total_page_index - 1, 0),
-            ))
-            row.add_item(DynButton(label="<", custom_id=c_id, disabled=total_page_index == 0))
-            c_id = "c:pins:" + b2048pack((
-                "t_next",
-                itx.user.id,
-                target_id,
-                channel_id,
-                user_page_index,
-                min(total_page_index + 1, len(all_leaderboard) - 1),
-            ))
-            row.add_item(DynButton(label=">", custom_id=c_id, disabled=total_page_index == len(all_leaderboard) - 1))
-            c_id = "c:pins:" + b2048pack((
-                "t_last",
-                itx.user.id,
-                target_id,
-                channel_id,
-                user_page_index,
-                len(all_leaderboard) - 1,
-            ))
-            row.add_item(DynButton(label=">>", custom_id=c_id, disabled=total_page_index == len(all_leaderboard) - 1))
+            c.add_item(text)
             c.add_item(row)
 
             c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.large))
 
         row = DynRow()
-        c_id = "c:pins:" + b2048pack((
-            "user",
-            itx.user.id,
-            target_id,
-            channel_id,
-            user_page_index,
-            total_page_index,
-        ))
+        c_id = cls.custom_id("user", itx.user.id, target_id, channel_id, user_page_index, total_page_index)
         row.add_item(
             DynUserSelect(
                 custom_id=c_id,
@@ -247,15 +197,16 @@ class PinsView:
         )
         c.add_item(row)
 
-        text = "### Has no pins yet in"
         if user_pins_by_channel:
             text = f"### Has {quantify(sum(pin for pin in user_pins_by_channel.values()), 'pin')} in"
             if channel_count > 1:
                 text += f" {quantify(len(user_pins_by_channel), 'channel')} in"
+        else:
+            text = "### Has no pins yet in"
         c.add_item(ui.TextDisplay(text))
 
         row = DynRow()
-        c_id = "c:pins:" + b2048pack(("channel", itx.user.id, target_id, channel_id, user_page_index, total_page_index))
+        c_id = cls.custom_id("channel", itx.user.id, target_id, channel_id, user_page_index, total_page_index)
         row.add_item(
             DynChannelSelect(
                 custom_id=c_id,
@@ -265,16 +216,16 @@ class PinsView:
         )
         c.add_item(row)
 
-        text = "### Which has no pins yet"
         if total_pins_by_user:
             text = f"### Which has {quantify(sum(pin for pin in total_pins_by_user.values()), 'pin')} overall"
             if channel_count > 1:
-                text += f" in {quantify(len(total_pins_by_user), 'channel')}"
+                text += f" in {quantify(channel_count, 'channel')}"
+        else:
+            text = "### Which has no pins yet"
         c.add_item(ui.TextDisplay(text))
 
         view = ui.LayoutView()
         view.add_item(c)
-
         await method(view=view)
 
     @classmethod
