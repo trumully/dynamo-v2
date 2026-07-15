@@ -307,9 +307,13 @@ async def render(
 ) -> tuple[BytesIO, tuple[int, int, int]]:
     log.debug("%s", track)
     track_cover_bytes = await get_cached_bytes(session, track.cover_url) if track.cover_url is not None else None
-    player_logo_bytes = await service.get_icon(track.player_name) if track.player_name is not None else None
+    player_logo_bytes = None
+    try:
+        player_logo_bytes = await service.get_icon(track.player_name) if track.player_name is not None else None
+    except aiohttp.ClientResponseError:
+        log.warning("Could not get logo, defaulting to no logo.")
     if track_cover_bytes is None:
-        msg = "Could not get track cover"
+        msg = f"Couldn't get track cover for track {track!r}"
         raise RuntimeError(msg)
     static_bytes, theme = await render_static(track_cover_bytes, track, player_logo_bytes)
     if track.duration is not None and track.end is not None:
@@ -330,7 +334,8 @@ def find_track(activities: tuple[discord.activity.ActivityTypes, ...], applicati
         (
             a
             for a in activities
-            if isinstance(a, discord.Activity) and a.type == ActivityType.listening and a.application_id in application_ids
+            if isinstance(a, discord.Activity) and a.type == ActivityType.listening
+            # and a.application_id in application_ids
         ),
         None,
     )

@@ -61,17 +61,18 @@ def _fetch_banner_transform(
 async def fetch_banner(itx: Interaction, user: discord.Member | discord.User) -> discord.Asset | None:
     """Fetch a banner from a member or user.
 
-    Due to a bug in dpy, the fallback for `discord.Member.display_banner` is always `None`.
+    Due to a bug in dpy, the fallback via `_user.banner` is always `None` for cached members.
     https://discord.com/channels/336642139381301249/1342075560498823198/1342075560498823198
     """
 
-    if not isinstance(user, discord.Member):
-        log.trace("Got banner from user %s", user)
+    if isinstance(user, discord.User):
+        log.debug("Got banner from user %s", user)
         return user.banner
-    if (display_banner := user.display_banner) is not None:
-        log.trace("Got display banner from user %s", user)
+    display_banner = user.display_banner
+    if display_banner is not None:
+        log.debug("Got display banner from user %s", user)
         return display_banner
-    log.trace("Got banner from fetched user %s", user)
+    log.debug("Got banner from fetched user %s", user)
     return (await itx.client.fetch_user(user.id)).banner
 
 
@@ -81,15 +82,7 @@ class AssetView:
         return "c:asset:" + b2048pack(to_pack)
 
     @staticmethod
-    def setup(
-        name: str,
-        url: str,
-        kind: Asset,
-        fmt: Format,
-        size: int,
-        *,
-        is_animated: bool = False,
-    ) -> DynContainer:
+    def setup(name: str, url: str, kind: Asset, fmt: Format, size: int, *, is_animated: bool = False) -> DynContainer:
         text = f"# {name}'s {kind.lower()}"
         text += f"\n**Format:** `{fmt}`       |       **Size:** `{size}`"
         if is_animated:
@@ -255,7 +248,7 @@ async def interested(itx: Interaction, event: str) -> None:
 async def autocomplete(itx: Interaction, current: str, /) -> list[app_commands.Choice[str]]:
     assert itx.guild is not None, "Guild only transformer."
     cf_current = current.casefold()
-    event_matches = {e for e in itx.guild.scheduled_events if e.name.casefold().startswith(cf_current)}
+    event_matches = (e for e in itx.guild.scheduled_events if e.name.casefold().startswith(cf_current))
     events = sorted(event_matches, key=lambda e: e.name)[:25]
     return [app_commands.Choice(name=e.name, value=str(e.id)) for e in events]
 
