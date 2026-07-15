@@ -19,6 +19,7 @@ import aiohttp
 import apsw
 import discord
 from async_utils.lru import LRU
+from async_utils.task_cache import taskcache
 from async_utils.waterfall import Waterfall
 from discord import InteractionType, app_commands
 from discord.abc import Snowflake
@@ -136,6 +137,7 @@ class Dynamo(discord.AutoShardedClient):
                 """,
                 ((user_id,) for user_id in user_ids),
             )
+            await self.prune_old_users()
 
     async def on_interaction(self, interaction: Interaction) -> None:
         guild_id = 0 if interaction.guild is None else interaction.guild.id
@@ -151,6 +153,16 @@ class Dynamo(discord.AutoShardedClient):
                     name, data = match.groups()
                     if rs := mapping.get(name):
                         await rs.raw_submit(interaction, data)
+
+    @taskcache(86400)
+    async def prune_old_users(self) -> None:
+        with self.conn:
+            self.conn.execute(
+                """
+                DELETE FROM users
+                WHERE datetime(CURRENT_TIMESTAMP, '-1 year') > last_interaction;
+                """
+            )
 
     async def is_user_blocked(self, user_id: int) -> bool:
         blocked = self.user_block_cache.get(user_id, None)
