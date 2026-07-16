@@ -110,10 +110,26 @@ def human_join(seq: t.Sequence[str], /, *, delimiter: str = ", ", end: str = "an
     return delimiter.join(seq[:-1]) + f" {end} {seq[-1]}"
 
 
-def quantify(quantity: int, thing: str, /, *, wrap: str | None = None) -> str:
-    """Get a string of a quantity and the thing quantified, plural if not a singular"""
-    amount = quantity if wrap is None else f"{wrap}{quantity}{wrap[::-1]}"
-    return f"{amount} {(quantity == 1 and thing) or f'{thing}s'}"
+class plural:
+    def __init__(self, value: int) -> None:
+        self.value: int = value
+
+    def __format__(self, format_spec: str) -> str:
+        v = self.value
+        skip_value = format_spec.endswith("!")
+        if skip_value:
+            format_spec = format_spec[:-1]
+
+        singular, _, plural = format_spec.partition("|")
+        plural = plural or f"{singular}s"
+        if skip_value:
+            if abs(v) != 1:
+                return plural
+            return singular
+
+        if abs(v) != 1:
+            return f"{v} {plural}"
+        return f"{v} {singular}"
 
 
 def chunk[T](sequence: list[T], size: int) -> list[list[T]]:

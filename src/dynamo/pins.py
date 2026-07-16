@@ -16,8 +16,7 @@ from . import _typings as t
 from ._types import BotExports, DynButton, DynChannelSelect, DynContainer, DynRow, DynUserSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
-from .utils import b2048pack, b2048unpack, chunk
-from .utils import quantify as quantify_impl
+from .utils import b2048pack, b2048unpack, chunk, plural
 
 LEADERBOARD_BATCH = 5
 
@@ -65,24 +64,16 @@ def get_total_pins_by_user(pins: list[discord.abc.PinnedMessage]) -> dict[int, i
 
 def user_pins_by_channel_leaderboard(pins: dict[int, int]) -> list[list[str]]:
     return chunk(
-        [f"{i + 1}. <#{channel}> - {quantify_bold(pin, 'pin')}\n" for i, (channel, pin) in enumerate(pins.items())],
+        [f"{i + 1}. <#{channel}> - **`{plural(pin):pin}`**\n" for i, (channel, pin) in enumerate(pins.items())],
         LEADERBOARD_BATCH,
     )
 
 
 def total_pins_by_user_leaderboard(pins: dict[int, int]) -> list[list[str]]:
     return chunk(
-        [f"{i + 1}. <@{user}> - {quantify_bold(pin, 'pin')}\n" for i, (user, pin) in enumerate(pins.items())],
+        [f"{i + 1}. <@{user}> - **`{plural(pin):pin}`**\n" for i, (user, pin) in enumerate(pins.items())],
         LEADERBOARD_BATCH,
     )
-
-
-def quantify(quantity: int, thing: str) -> str:
-    return quantify_impl(quantity, thing, wrap="`")
-
-
-def quantify_bold(quantity: int, thing: str) -> str:
-    return quantify_impl(quantity, thing, wrap="**`")
 
 
 class PinsView:
@@ -198,9 +189,9 @@ class PinsView:
         c.add_item(row)
 
         if user_pins_by_channel:
-            text = f"### Has {quantify(sum(pin for pin in user_pins_by_channel.values()), 'pin')} in"
+            text = f"### Has `{plural(sum(pin for pin in user_pins_by_channel.values())):pin}` in"
             if channel_count > 1:
-                text += f" {quantify(len(user_pins_by_channel), 'channel')} in"
+                text += f" `{plural(len(user_pins_by_channel)):channel}` in"
         else:
             text = "### Has no pins yet in"
         c.add_item(ui.TextDisplay(text))
@@ -217,9 +208,9 @@ class PinsView:
         c.add_item(row)
 
         if total_pins_by_user:
-            text = f"### Which has {quantify(sum(pin for pin in total_pins_by_user.values()), 'pin')} overall"
+            text = f"### Which has `{plural(sum(pin for pin in total_pins_by_user.values())):pin}` overall"
             if channel_count > 1:
-                text += f" in {quantify(channel_count, 'channel')}"
+                text += f" in `{plural(channel_count):channel}`"
         else:
             text = "### Which has no pins yet"
         c.add_item(ui.TextDisplay(text))
