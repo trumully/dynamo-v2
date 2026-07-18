@@ -13,7 +13,7 @@ from discord.enums import ButtonStyle
 
 from . import _typings as t
 from ._ac import cf_ac_cache_transform
-from ._types import BotExports, DynButton, DynContainer, DynRow, DynSelect
+from ._types import BotExports, DynButton, DynSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .utils import b2048pack, b2048unpack
@@ -82,7 +82,9 @@ class AssetView:
         return "c:asset:" + b2048pack(to_pack)
 
     @staticmethod
-    def setup(name: str, url: str, kind: Asset, fmt: Format, size: int, *, is_animated: bool = False) -> DynContainer:
+    def setup(
+        name: str, url: str, kind: Asset, fmt: Format, size: int, *, is_animated: bool = False
+    ) -> ui.Container[ui.LayoutView]:
         text = f"# {name}'s {kind.lower()}"
         text += f"\n**Format:** `{fmt}`       |       **Size:** `{size}`"
         if is_animated:
@@ -91,7 +93,7 @@ class AssetView:
                 text += "Select `png` format and click `View` to see the animation."
             else:
                 text += "Select `gif` format to view."
-        return DynContainer(
+        return ui.Container[ui.LayoutView](
             ui.TextDisplay(text),
             ui.MediaGallery(components.MediaGalleryItem(url)),
             ui.Separator(visible=False),
@@ -143,11 +145,10 @@ class AssetView:
 
         c = cls.setup(user.name, asset.url, image_kind, file_type, size, is_animated=asset.is_animated())
 
-        btns = DynRow()
-
+        row = ui.ActionRow[ui.LayoutView]()
         avatar_format = "gif" if avatar.is_animated() else "png"
         c_id = cls.custom_id("avatar", user_id, target_id, Asset.AVATAR, avatar_format, size)
-        btns.add_item(
+        row.add_item(
             DynButton(
                 label="Avatar",
                 custom_id=c_id,
@@ -155,10 +156,9 @@ class AssetView:
                 disabled=image_kind is Asset.AVATAR,
             )
         )
-
         banner_format = "gif" if banner is not None and banner.is_animated() else "png"
         c_id = cls.custom_id("banner", user_id, target_id, Asset.BANNER, banner_format, size)
-        btns.add_item(
+        row.add_item(
             DynButton(
                 label="Banner",
                 custom_id=c_id,
@@ -166,10 +166,9 @@ class AssetView:
                 disabled=banner is None or image_kind is Asset.BANNER,
             )
         )
-
         # Animated decorations are an animated png so use png no matter what
         c_id = cls.custom_id("deco", user_id, target_id, Asset.DECO, "png", size)
-        btns.add_item(
+        row.add_item(
             DynButton(
                 label="Decoration",
                 custom_id=c_id,
@@ -177,18 +176,18 @@ class AssetView:
                 disabled=decoration is None or image_kind is Asset.DECO,
             )
         )
-        btns.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
+        row.add_item(DynButton(label="View", url=asset.url, style=ButtonStyle.url))
 
-        c.add_item(btns).add_item(ui.Separator(visible=False))
+        c.add_item(row).add_item(ui.Separator(visible=False))
 
         c_id = cls.custom_id("format", user_id, target_id, image_kind, file_type, size)
-        row = DynRow()
+        row = ui.ActionRow[ui.LayoutView]()
         options = ASSET_FORMAT_OPTIONS if asset.is_animated() and image_kind is not Asset.DECO else STATIC_FORMAT_OPTIONS
         row.add_item(DynSelect(placeholder="Set format", custom_id=c_id, options=options))
         c.add_item(row)
 
         c_id = cls.custom_id("size", user_id, target_id, image_kind, file_type, size)
-        row = DynRow()
+        row = ui.ActionRow[ui.LayoutView]()
         row.add_item(DynSelect(placeholder="Change size", custom_id=c_id, options=SIZE_OPTIONS))
         c.add_item(row)
 

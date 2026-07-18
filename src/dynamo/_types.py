@@ -20,16 +20,6 @@ from . import _typings as t
 type Coro[T: object = t.Any] = t.Coroutine[None, None, T]
 
 
-class RawSubmittableCls(t.Protocol):
-    @classmethod
-    async def raw_submit(cls, interaction: DInter, data: str) -> object: ...
-
-
-class RawSubmittableStatic(t.Protocol):
-    @staticmethod
-    async def raw_submit(interaction: DInter, data: str) -> object: ...
-
-
 class DynButton(ui.Button[ui.LayoutView]):
     async def callback(self, interaction: DInter) -> object: ...
 
@@ -46,16 +36,14 @@ class DynChannelSelect(ui.ChannelSelect[ui.LayoutView]):
     async def callback(self, interaction: DInter) -> object: ...
 
 
-class DynSection(ui.Section[ui.LayoutView]):
-    async def callback(self, interaction: DInter) -> object: ...
+class RawSubmittableCls(t.Protocol):
+    @classmethod
+    async def raw_submit(cls, interaction: DInter, data: str) -> object: ...
 
 
-class DynContainer(ui.Container[ui.LayoutView]):
-    async def callback(self, interaction: DInter) -> object: ...
-
-
-class DynRow(ui.ActionRow[ui.LayoutView]):
-    async def callback(self, interaction: DInter) -> object: ...
+class RawSubmittableStatic(t.Protocol):
+    @staticmethod
+    async def raw_submit(interaction: DInter, data: str) -> object: ...
 
 
 type ACommand = Command[t.Any, ..., t.Any]

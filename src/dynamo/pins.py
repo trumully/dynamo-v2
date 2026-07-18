@@ -13,7 +13,7 @@ from async_utils.corofunc_cache import lrucorocache
 from discord import app_commands, ui
 
 from . import _typings as t
-from ._types import BotExports, DynButton, DynChannelSelect, DynContainer, DynRow, DynUserSelect
+from ._types import BotExports, DynButton, DynChannelSelect, DynUserSelect
 from .bot import Interaction
 from .logs import Logger, get_logger
 from .utils import b2048pack, b2048unpack, chunk, plural
@@ -92,13 +92,13 @@ class PinsView:
         prev_id: str,
         next_id: str,
         last_id: str,
-    ) -> tuple[ui.TextDisplay[ui.LayoutView], DynRow]:
+    ) -> tuple[ui.TextDisplay[ui.LayoutView], ui.ActionRow[ui.LayoutView]]:
         length = len(items)
         index %= length
         first_disabled = index == 0
         last_disabled = index == length - 1
 
-        return ui.TextDisplay(f"{header}\n{''.join(items[index])}-# Page: {index + 1} / {length}"), DynRow(
+        return ui.TextDisplay(f"{header}\n{''.join(items[index])}-# Page: {index + 1} / {length}"), ui.ActionRow(
             DynButton(label="<<", custom_id=first_id, disabled=first_disabled),
             DynButton(label="<", custom_id=prev_id, disabled=first_disabled),
             DynButton(label=">", custom_id=next_id, disabled=last_disabled),
@@ -107,7 +107,8 @@ class PinsView:
 
     @classmethod
     async def warning(cls, itx: Interaction, message: str) -> None:
-        await itx.edit_original_response(view=ui.LayoutView().add_item(DynContainer().add_item(ui.TextDisplay(message))))
+        container = ui.Container[ui.LayoutView](ui.TextDisplay(message))
+        await itx.edit_original_response(view=ui.LayoutView().add_item(container))
 
     @classmethod
     async def start(cls, itx: Interaction, target_id: int, channel_id: int, *, deferred: bool) -> None:
@@ -145,7 +146,7 @@ class PinsView:
         total_pins_by_user = get_total_pins_by_user(pins)
         user_pins_by_channel = get_user_pins_by_channel(target_id, pins)
 
-        c = DynContainer()
+        c = ui.Container[ui.LayoutView]()
 
         if user_pins_by_channel and channel_count > 1:
             leaderboard = user_pins_by_channel_leaderboard(user_pins_by_channel)
@@ -178,7 +179,7 @@ class PinsView:
 
             c.add_item(ui.Separator(visible=True, spacing=discord.enums.SeparatorSpacing.large))
 
-        row = DynRow()
+        row = ui.ActionRow[ui.LayoutView]()
         c_id = cls.custom_id("user", itx.user.id, target_id, channel_id, user_page_index, total_page_index)
         row.add_item(
             DynUserSelect(
@@ -196,7 +197,7 @@ class PinsView:
             text = "### Has no pins yet in"
         c.add_item(ui.TextDisplay(text))
 
-        row = DynRow()
+        row = ui.ActionRow[ui.LayoutView]()
         c_id = cls.custom_id("channel", itx.user.id, target_id, channel_id, user_page_index, total_page_index)
         row.add_item(
             DynChannelSelect(

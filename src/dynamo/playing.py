@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageStat
 
 from . import _typings as t
 from ._ac import cf_ac_cache_transform
-from ._types import BotExports, DynContainer
+from ._types import BotExports
 from .bot import Interaction
 from .color import Color, luminance, saturation
 from .logs import Logger, get_logger
@@ -390,7 +390,7 @@ async def get_playing(
     await itx.response.defer()
     image, accent = await render(itx.client.session, itx.client.services.music_presence, track)
 
-    c = DynContainer(accent_color=Color.from_rgb(*accent))
+    c = ui.Container[ui.LayoutView](accent_color=Color.from_rgb(*accent))
     track_name = track.title if track.url is None else f"[{track.title}]({track.url})"
     artists = human_join(track.artists)
     c.add_item(ui.TextDisplay(f"### {user.mention} is listening to **{track_name}** by **{artists}**"))
